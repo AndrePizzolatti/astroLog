@@ -18,6 +18,11 @@ async function assertOwnership(
   return record
 }
 
+const ACCESSORY_TYPES = [
+  'REDUCER_FLATTENER', 'BARLOW', 'OAG', 'FILTER_WHEEL',
+  'FOCUSER', 'ROTATOR', 'DEW_HEATER', 'FILTER_INDIVIDUAL', 'OTHER',
+] as const
+
 // ──────────────────────────────────────────
 // Telescopes
 // ──────────────────────────────────────────
@@ -200,6 +205,58 @@ export const mountRouter = router({
     .mutation(async ({ ctx, input }) => {
       await assertOwnership(ctx, 'mount', input.id)
       await ctx.prisma.mount.delete({ where: { id: input.id } })
+      return { success: true }
+    }),
+})
+
+// ──────────────────────────────────────────
+// Accessories
+// ──────────────────────────────────────────
+export const accessoryRouter = router({
+  list: protectedProcedure.query(({ ctx }) =>
+    ctx.prisma.accessory.findMany({
+      where: { userId: ctx.session.user.id },
+      include: { _count: { select: { setupAccessories: true } } },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ),
+
+  create: protectedProcedure
+    .input(z.object({
+      name:        z.string().min(2),
+      type:        z.enum(ACCESSORY_TYPES),
+      brand:       z.string().optional(),
+      model:       z.string().optional(),
+      focalFactor: z.number().positive().optional(),
+      notes:       z.string().optional(),
+    }))
+    .mutation(({ ctx, input }) =>
+      ctx.prisma.accessory.create({
+        data: { ...input, userId: ctx.session.user.id },
+      }),
+    ),
+
+  update: protectedProcedure
+    .input(z.object({
+      id:          z.string(),
+      name:        z.string().min(2).optional(),
+      type:        z.enum(ACCESSORY_TYPES).optional(),
+      brand:       z.string().optional(),
+      model:       z.string().optional(),
+      focalFactor: z.number().positive().nullable().optional(),
+      notes:       z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input
+      await assertOwnership(ctx, 'accessory', id)
+      return ctx.prisma.accessory.update({ where: { id }, data })
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnership(ctx, 'accessory', input.id)
+      await ctx.prisma.accessory.delete({ where: { id: input.id } })
       return { success: true }
     }),
 })

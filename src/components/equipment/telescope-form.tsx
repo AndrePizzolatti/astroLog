@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -22,12 +23,21 @@ const schema = z.object({
 
 type FormValues = z.input<typeof schema>
 
+export type TelescopeInitial = {
+  id: string; name: string; brand?: string | null; model?: string | null
+  opticalDesign?: string | null; focalLengthMm: number; apertureMm: number
+  focalRatioOverride?: number | null; obstruction?: number | null
+  weightKg?: number | null; notes?: string | null
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initial?: TelescopeInitial
 }
 
-export function TelescopeForm({ open, onOpenChange }: Props) {
+export function TelescopeForm({ open, onOpenChange, initial }: Props) {
+  const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
 
@@ -35,19 +45,46 @@ export function TelescopeForm({ open, onOpenChange }: Props) {
     resolver: zodResolver(schema),
   })
 
+  useEffect(() => {
+    if (open) {
+      reset(initial ? {
+        name:               initial.name,
+        brand:              initial.brand ?? '',
+        model:              initial.model ?? '',
+        opticalDesign:      initial.opticalDesign ?? '',
+        focalLengthMm:      initial.focalLengthMm,
+        apertureMm:         initial.apertureMm,
+        focalRatioOverride: initial.focalRatioOverride ?? '',
+        obstruction:        initial.obstruction ?? '',
+        weightKg:           initial.weightKg ?? '',
+        notes:              initial.notes ?? '',
+      } : {})
+    }
+  }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const invalidate = () => utils.telescopes.list.invalidate()
+
   const create = api.telescopes.create.useMutation({
-    onSuccess: () => {
-      utils.telescopes.list.invalidate()
-      toast('Telescópio adicionado!')
-      reset()
-      onOpenChange(false)
-    },
+    onSuccess: () => { invalidate(); toast('Telescópio adicionado!'); reset(); onOpenChange(false) },
     onError: (e) => toast(e.message, 'error'),
   })
 
+  const update = api.telescopes.update.useMutation({
+    onSuccess: () => { invalidate(); toast('Telescópio atualizado!'); onOpenChange(false) },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function onSubmit(data: FormValues) {
+    if (isEdit) {
+      update.mutate({ id: initial!.id, ...(data as any) })
+    } else {
+      create.mutate(data as any)
+    }
+  }
+
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Adicionar Telescópio">
-      <form onSubmit={handleSubmit(d => create.mutate(d as any))} className="space-y-4">
+    <Modal open={open} onOpenChange={onOpenChange} title={isEdit ? 'Editar Telescópio' : 'Adicionar Telescópio'}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="input-label">Nome *</label>
@@ -96,7 +133,7 @@ export function TelescopeForm({ open, onOpenChange }: Props) {
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
           <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando…' : 'Adicionar'}
+            {isSubmitting ? 'Salvando…' : isEdit ? 'Salvar' : 'Adicionar'}
           </button>
         </div>
       </form>

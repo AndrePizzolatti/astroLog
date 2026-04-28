@@ -1,6 +1,7 @@
 'use client'
 
-import { useForm, Controller } from 'react-hook-form'
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { api } from '@/lib/trpc'
@@ -18,52 +19,94 @@ const schema = z.object({
   isDefault:        z.boolean().default(false),
   effectiveFocalMm: z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
   filtersAvailable: z.array(z.string()).default([]),
+  accessoryIds:     z.array(z.string()).default([]),
   notes:            z.string().optional(),
 })
 
 type FormValues = z.input<typeof schema>
 
+export type SetupInitial = {
+  id: string; name: string; telescopeId: string; cameraId: string
+  mountId?: string | null; isDefault: boolean; effectiveFocalMm?: number | null
+  filtersAvailable: string[]; notes?: string | null
+  accessories: { accessoryId: string }[]
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initial?: SetupInitial
 }
 
-export function SetupForm({ open, onOpenChange }: Props) {
+export function SetupForm({ open, onOpenChange, initial }: Props) {
+  const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
 
   const { data: telescopes } = api.telescopes.list.useQuery()
   const { data: cameras }    = api.cameras.list.useQuery()
   const { data: mounts }     = api.mounts.list.useQuery()
+  const { data: accessories } = api.accessories.list.useQuery()
 
-  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { filtersAvailable: [], isDefault: false },
+    defaultValues: { filtersAvailable: [], accessoryIds: [], isDefault: false },
   })
 
-  const selectedFilters = watch('filtersAvailable') ?? []
+  const selectedFilters     = watch('filtersAvailable') ?? []
+  const selectedAccessories = watch('accessoryIds') ?? []
+
+  useEffect(() => {
+    if (open) {
+      reset(initial ? {
+        name:             initial.name,
+        telescopeId:      initial.telescopeId,
+        cameraId:         initial.cameraId,
+        mountId:          initial.mountId ?? '',
+        isDefault:        initial.isDefault,
+        effectiveFocalMm: initial.effectiveFocalMm ?? '',
+        filtersAvailable: initial.filtersAvailable,
+        accessoryIds:     initial.accessories.map(a => a.accessoryId),
+        notes:            initial.notes ?? '',
+      } : { filtersAvailable: [], accessoryIds: [], isDefault: false })
+    }
+  }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const invalidate = () => utils.setups.list.invalidate()
 
   const create = api.setups.create.useMutation({
-    onSuccess: () => {
-      utils.setups.list.invalidate()
-      toast('Setup criado!')
-      reset()
-      onOpenChange(false)
-    },
+    onSuccess: () => { invalidate(); toast('Setup criado!'); reset(); onOpenChange(false) },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  const update = api.setups.update.useMutation({
+    onSuccess: () => { invalidate(); toast('Setup atualizado!'); onOpenChange(false) },
     onError: (e) => toast(e.message, 'error'),
   })
 
   function toggleFilter(f: string) {
     const cur = selectedFilters
-    setValue(
-      'filtersAvailable',
-      cur.includes(f) ? cur.filter(x => x !== f) : [...cur, f],
-    )
+    setValue('filtersAvailable', cur.includes(f) ? cur.filter(x => x !== f) : [...cur, f])
+  }
+
+  function toggleAccessory(id: string) {
+    const cur = selectedAccessories
+    setValue('accessoryIds', cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])
+  }
+
+  function onSubmit(data: FormValues) {
+    if (isEdit) {
+      update.mutate({ id: initial!.id, ...(data as any) })
+    } else {
+      create.mutate(data as any)
+    }
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Novo Setup" description="Combinação de telescópio + câmera + montagem">
-      <form onSubmit={handleSubmit(d => create.mutate(d as any))} className="space-y-4">
+    <Modal open={open} onOpenChange={onOpenChange}
+      title={isEdit ? 'Editar Setup' : 'Novo Setup'}
+      description="Combinação de telescópio + câmera + montagem">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="input-label">Nome do setup *</label>
@@ -113,24 +156,44 @@ export function SetupForm({ open, onOpenChange }: Props) {
               Setup padrão
             </label>
           </div>
+
+          {/* Filters */}
           <div className="col-span-2">
             <label className="input-label">Filtros disponíveis</label>
             <div className="flex flex-wrap gap-1.5 mt-1">
               {FILTERS.map(f => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => toggleFilter(f)}
-                  className={cn(
-                    'filter-pill transition-opacity',
-                    selectedFilters.includes(f) ? filterPillClass(f) : 'opacity-30 bg-white/5 text-white/40',
-                  )}
-                >
+                <button key={f} type="button" onClick={() => toggleFilter(f)}
+                  className={cn('filter-pill transition-opacity',
+                    selectedFilters.includes(f) ? filterPillClass(f) : 'opacity-30 bg-white/5 text-white/40')}>
                   {f}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Accessories */}
+          {accessories && accessories.length > 0 && (
+            <div className="col-span-2">
+              <label className="input-label">Acessórios</label>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {accessories.map(a => {
+                  const selected = selectedAccessories.includes(a.id)
+                  return (
+                    <button key={a.id} type="button" onClick={() => toggleAccessory(a.id)}
+                      className={cn(
+                        'px-2 py-0.5 rounded text-xs font-medium border transition-opacity',
+                        selected
+                          ? 'bg-cosmos-500/20 text-cosmos-300 border-cosmos-500/40'
+                          : 'opacity-30 bg-white/5 text-white/40 border-white/10',
+                      )}>
+                      {a.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="col-span-2">
             <label className="input-label">Notas</label>
             <textarea {...register('notes')} className="input" rows={2} />
@@ -139,7 +202,7 @@ export function SetupForm({ open, onOpenChange }: Props) {
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
           <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Criando…' : 'Criar Setup'}
+            {isSubmitting ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar Setup'}
           </button>
         </div>
       </form>

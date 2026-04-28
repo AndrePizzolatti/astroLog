@@ -1,11 +1,17 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
+
+const MOUNT_TYPE_LABELS = {
+  EQ: 'Equatorial', ALT_AZ: 'Alt-azimutal', DOBSONIAN: 'Dobsonian',
+  FORK: 'Fork', TRACKING: 'Plataforma equatorial',
+}
 
 const schema = z.object({
   name:           z.string().min(2, 'Nome obrigatório'),
@@ -21,17 +27,21 @@ const schema = z.object({
 
 type FormValues = z.input<typeof schema>
 
+export type MountInitial = {
+  id: string; name: string; brand?: string | null; model?: string | null
+  mountType: 'EQ' | 'ALT_AZ' | 'DOBSONIAN' | 'FORK' | 'TRACKING'
+  payloadKg?: number | null; hasGuidingPort: boolean; hasPolarScope: boolean
+  weightKg?: number | null; notes?: string | null
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initial?: MountInitial
 }
 
-const MOUNT_TYPE_LABELS = {
-  EQ: 'Equatorial', ALT_AZ: 'Alt-azimutal', DOBSONIAN: 'Dobsonian',
-  FORK: 'Fork', TRACKING: 'Plataforma equatorial',
-}
-
-export function MountForm({ open, onOpenChange }: Props) {
+export function MountForm({ open, onOpenChange, initial }: Props) {
+  const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
 
@@ -40,19 +50,45 @@ export function MountForm({ open, onOpenChange }: Props) {
     defaultValues: { mountType: 'EQ', hasGuidingPort: true, hasPolarScope: false },
   })
 
+  useEffect(() => {
+    if (open) {
+      reset(initial ? {
+        name:           initial.name,
+        brand:          initial.brand ?? '',
+        model:          initial.model ?? '',
+        mountType:      initial.mountType,
+        payloadKg:      initial.payloadKg ?? '',
+        hasGuidingPort: initial.hasGuidingPort,
+        hasPolarScope:  initial.hasPolarScope,
+        weightKg:       initial.weightKg ?? '',
+        notes:          initial.notes ?? '',
+      } : { mountType: 'EQ', hasGuidingPort: true, hasPolarScope: false })
+    }
+  }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const invalidate = () => utils.mounts.list.invalidate()
+
   const create = api.mounts.create.useMutation({
-    onSuccess: () => {
-      utils.mounts.list.invalidate()
-      toast('Montagem adicionada!')
-      reset()
-      onOpenChange(false)
-    },
+    onSuccess: () => { invalidate(); toast('Montagem adicionada!'); reset(); onOpenChange(false) },
     onError: (e) => toast(e.message, 'error'),
   })
 
+  const update = api.mounts.update.useMutation({
+    onSuccess: () => { invalidate(); toast('Montagem atualizada!'); onOpenChange(false) },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function onSubmit(data: FormValues) {
+    if (isEdit) {
+      update.mutate({ id: initial!.id, ...(data as any) })
+    } else {
+      create.mutate(data as any)
+    }
+  }
+
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Adicionar Montagem">
-      <form onSubmit={handleSubmit(d => create.mutate(d as any))} className="space-y-4">
+    <Modal open={open} onOpenChange={onOpenChange} title={isEdit ? 'Editar Montagem' : 'Adicionar Montagem'}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="input-label">Nome *</label>
@@ -101,7 +137,7 @@ export function MountForm({ open, onOpenChange }: Props) {
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
           <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando…' : 'Adicionar'}
+            {isSubmitting ? 'Salvando…' : isEdit ? 'Salvar' : 'Adicionar'}
           </button>
         </div>
       </form>

@@ -1,22 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Telescope, Camera, Compass, Layers, Zap } from 'lucide-react'
+import { Plus, Telescope, Camera, Compass, Layers, Zap, Package, Pencil, Trash2 } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn, calculateTelescope, filterPillClass } from '@/lib/utils'
-import { TelescopeForm } from '@/components/equipment/telescope-form'
-import { CameraForm }    from '@/components/equipment/camera-form'
-import { MountForm }     from '@/components/equipment/mount-form'
-import { SetupForm }     from '@/components/equipment/setup-form'
-import { useToast }      from '@/components/ui/toast'
+import { TelescopeForm, type TelescopeInitial } from '@/components/equipment/telescope-form'
+import { CameraForm,    type CameraInitial }    from '@/components/equipment/camera-form'
+import { MountForm,     type MountInitial }     from '@/components/equipment/mount-form'
+import { SetupForm,     type SetupInitial }     from '@/components/equipment/setup-form'
+import { AccessoryForm, type AccessoryInitial, ACCESSORY_TYPE_LABELS } from '@/components/equipment/accessory-form'
+import { useToast } from '@/components/ui/toast'
 
-type Tab = 'setups' | 'telescopes' | 'cameras' | 'mounts'
+type Tab = 'setups' | 'telescopes' | 'cameras' | 'mounts' | 'accessories'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<any> }[] = [
-  { id: 'setups',     label: 'Meus Setups',  icon: Layers    },
-  { id: 'telescopes', label: 'Telescópios',  icon: Telescope },
-  { id: 'cameras',    label: 'Câmeras',      icon: Camera    },
-  { id: 'mounts',     label: 'Montagens',    icon: Compass   },
+  { id: 'setups',      label: 'Meus Setups',  icon: Layers   },
+  { id: 'telescopes',  label: 'Telescópios',  icon: Telescope },
+  { id: 'cameras',     label: 'Câmeras',      icon: Camera   },
+  { id: 'mounts',      label: 'Montagens',    icon: Compass  },
+  { id: 'accessories', label: 'Acessórios',   icon: Package  },
 ]
 
 export default function EquipmentPage() {
@@ -32,7 +34,7 @@ export default function EquipmentPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-8 w-fit">
+      <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-8 w-fit flex-wrap">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -50,18 +52,43 @@ export default function EquipmentPage() {
         ))}
       </div>
 
-      {tab === 'setups'     && <SetupsTab />}
-      {tab === 'telescopes' && <TelescopesTab />}
-      {tab === 'cameras'    && <CamerasTab />}
-      {tab === 'mounts'     && <MountsTab />}
+      {tab === 'setups'      && <SetupsTab />}
+      {tab === 'telescopes'  && <TelescopesTab />}
+      {tab === 'cameras'     && <CamerasTab />}
+      {tab === 'mounts'      && <MountsTab />}
+      {tab === 'accessories' && <AccessoriesTab />}
     </div>
   )
 }
 
 // ─────────────────────────────── Setups ────
 function SetupsTab() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState<SetupInitial | null>(null)
   const { data: setups, isLoading } = api.setups.list.useQuery()
+  const { toast } = useToast()
+  const utils = api.useUtils()
+
+  const del = api.setups.delete.useMutation({
+    onSuccess: () => { utils.setups.list.invalidate(); toast('Setup removido') },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function handleEdit(s: any) {
+    setEditing({
+      id: s.id, name: s.name, telescopeId: s.telescopeId, cameraId: s.cameraId,
+      mountId: s.mountId, isDefault: s.isDefault, effectiveFocalMm: s.effectiveFocalMm,
+      filtersAvailable: s.filtersAvailable, notes: s.notes,
+      accessories: s.accessories,
+    })
+    setOpen(true)
+  }
+
+  function handleClose(v: boolean) {
+    setOpen(v)
+    if (!v) setEditing(null)
+  }
+
   if (isLoading) return <LoadingGrid />
 
   return (
@@ -75,14 +102,18 @@ function SetupsTab() {
         ? <EmptyState icon={Layers} title="Nenhum setup criado"
             description="Crie um setup combinando telescópio + câmera + montagem para vincular aos seus projetos." />
         : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {setups.map(s => <SetupCard key={s.id} setup={s} />)}
+            {setups.map(s => (
+              <SetupCard key={s.id} setup={s}
+                onEdit={() => handleEdit(s)}
+                onDelete={() => del.mutate({ id: s.id })} />
+            ))}
           </div>}
-      <SetupForm open={open} onOpenChange={setOpen} />
+      <SetupForm open={open} onOpenChange={handleClose} initial={editing ?? undefined} />
     </div>
   )
 }
 
-function SetupCard({ setup }: { setup: any }) {
+function SetupCard({ setup, onEdit, onDelete }: { setup: any; onEdit: () => void; onDelete: () => void }) {
   const { data: optics } = api.setups.calculateOptics.useQuery({ id: setup.id })
   const effectiveFocal = setup.effectiveFocalMm ?? setup.telescope.focalLengthMm
 
@@ -98,7 +129,15 @@ function SetupCard({ setup }: { setup: any }) {
             {setup._count.projects} projeto{setup._count.projects !== 1 ? 's' : ''}
           </p>
         </div>
-        <Zap className="w-4 h-4 text-cosmos-400" />
+        <div className="flex items-center gap-1">
+          <button onClick={onEdit} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onDelete} className="btn-ghost p-1.5 text-white/30 hover:text-red-400">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          <Zap className="w-4 h-4 text-cosmos-400 ml-1" />
+        </div>
       </div>
 
       <div className="space-y-1.5 text-sm">
@@ -147,14 +186,18 @@ function SetupCard({ setup }: { setup: any }) {
 
 // ──────────────────────────── Telescopes ────
 function TelescopesTab() {
-  const [open, setOpen] = useState(false)
-  const { data, isLoading } = api.telescopes.list.useQuery()
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState<TelescopeInitial | null>(null)
+  const { data, isLoading }   = api.telescopes.list.useQuery()
   const { toast } = useToast()
   const utils = api.useUtils()
+
   const del = api.telescopes.delete.useMutation({
     onSuccess: () => { utils.telescopes.list.invalidate(); toast('Telescópio removido') },
     onError: (e) => toast(e.message, 'error'),
   })
+
+  function handleClose(v: boolean) { setOpen(v); if (!v) setEditing(null) }
 
   if (isLoading) return <LoadingGrid />
 
@@ -176,10 +219,13 @@ function TelescopesTab() {
                     <h3 className="font-semibold">{t.name}</h3>
                     {t.brand && <p className="text-xs text-white/40">{t.brand} {t.model}</p>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="badge bg-white/5 text-white/40">{t.opticalDesign ?? 'Telescópio'}</span>
-                    <button onClick={() => del.mutate({ id: t.id })} className="btn-ghost p-1 text-white/20 hover:text-red-400">
-                      ×
+                  <div className="flex items-center gap-1">
+                    <span className="badge bg-white/5 text-white/40 mr-1">{t.opticalDesign ?? 'Telescópio'}</span>
+                    <button onClick={() => { setEditing(t); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => del.mutate({ id: t.id })} className="btn-ghost p-1.5 text-white/30 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -194,21 +240,25 @@ function TelescopesTab() {
               </div>
             ))}
           </div>}
-      <TelescopeForm open={open} onOpenChange={setOpen} />
+      <TelescopeForm open={open} onOpenChange={handleClose} initial={editing ?? undefined} />
     </div>
   )
 }
 
 // ─────────────────────────────── Cameras ────
 function CamerasTab() {
-  const [open, setOpen] = useState(false)
-  const { data, isLoading } = api.cameras.list.useQuery()
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState<CameraInitial | null>(null)
+  const { data, isLoading }   = api.cameras.list.useQuery()
   const { toast } = useToast()
   const utils = api.useUtils()
+
   const del = api.cameras.delete.useMutation({
     onSuccess: () => { utils.cameras.list.invalidate(); toast('Câmera removida') },
     onError: (e) => toast(e.message, 'error'),
   })
+
+  function handleClose(v: boolean) { setOpen(v); if (!v) setEditing(null) }
 
   if (isLoading) return <LoadingGrid />
 
@@ -230,10 +280,15 @@ function CamerasTab() {
                     <h3 className="font-semibold">{c.name}</h3>
                     {c.brand && <p className="text-xs text-white/40">{c.brand} {c.model}</p>}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <span className="badge bg-white/5 text-white/40">{c.colorType}</span>
-                    {c.cooled && <span className="badge bg-blue-500/20 text-blue-300">TEC</span>}
-                    <button onClick={() => del.mutate({ id: c.id })} className="btn-ghost p-1 text-white/20 hover:text-red-400">×</button>
+                    {c.cooled && <span className="badge bg-blue-500/20 text-blue-300 ml-1">TEC</span>}
+                    <button onClick={() => { setEditing(c); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => del.mutate({ id: c.id })} className="btn-ghost p-1.5 text-white/30 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -250,21 +305,25 @@ function CamerasTab() {
               </div>
             ))}
           </div>}
-      <CameraForm open={open} onOpenChange={setOpen} />
+      <CameraForm open={open} onOpenChange={handleClose} initial={editing ?? undefined} />
     </div>
   )
 }
 
 // ──────────────────────────────── Mounts ────
 function MountsTab() {
-  const [open, setOpen] = useState(false)
-  const { data, isLoading } = api.mounts.list.useQuery()
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState<MountInitial | null>(null)
+  const { data, isLoading }   = api.mounts.list.useQuery()
   const { toast } = useToast()
   const utils = api.useUtils()
+
   const del = api.mounts.delete.useMutation({
     onSuccess: () => { utils.mounts.list.invalidate(); toast('Montagem removida') },
     onError: (e) => toast(e.message, 'error'),
   })
+
+  function handleClose(v: boolean) { setOpen(v); if (!v) setEditing(null) }
 
   if (isLoading) return <LoadingGrid />
 
@@ -285,7 +344,14 @@ function MountsTab() {
                     <h3 className="font-semibold">{m.name}</h3>
                     {m.brand && <p className="text-xs text-white/40">{m.brand} {m.model}</p>}
                   </div>
-                  <button onClick={() => del.mutate({ id: m.id })} className="btn-ghost p-1 text-white/20 hover:text-red-400">×</button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => { setEditing(m); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => del.mutate({ id: m.id })} className="btn-ghost p-1.5 text-white/30 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Metric label="Tipo" value={m.mountType} />
@@ -298,7 +364,68 @@ function MountsTab() {
               </div>
             ))}
           </div>}
-      <MountForm open={open} onOpenChange={setOpen} />
+      <MountForm open={open} onOpenChange={handleClose} initial={editing ?? undefined} />
+    </div>
+  )
+}
+
+// ─────────────────────────── Accessories ────
+function AccessoriesTab() {
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState<AccessoryInitial | null>(null)
+  const { data, isLoading }   = api.accessories.list.useQuery()
+  const { toast } = useToast()
+  const utils = api.useUtils()
+
+  const del = api.accessories.delete.useMutation({
+    onSuccess: () => { utils.accessories.list.invalidate(); toast('Acessório removido') },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function handleClose(v: boolean) { setOpen(v); if (!v) setEditing(null) }
+
+  if (isLoading) return <LoadingGrid />
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button className="btn-primary flex items-center gap-2" onClick={() => setOpen(true)}>
+          <Plus className="w-4 h-4" /> Adicionar Acessório
+        </button>
+      </div>
+      {!data?.length
+        ? <EmptyState icon={Package} title="Nenhum acessório"
+            description="Cadastre redutores, barlows, OAGs e outros acessórios para associar aos seus setups." />
+        : <div className="equipment-grid">
+            {data.map(a => (
+              <div key={a.id} className="card p-5 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold">{a.name}</h3>
+                    {a.brand && <p className="text-xs text-white/40">{a.brand} {a.model}</p>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="badge bg-white/5 text-white/40 mr-1 text-[10px]">
+                      {ACCESSORY_TYPE_LABELS[a.type] ?? a.type}
+                    </span>
+                    <button onClick={() => { setEditing(a); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => del.mutate({ id: a.id })} className="btn-ghost p-1.5 text-white/30 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                {a.focalFactor && (
+                  <Metric label="Fator focal" value={`×${a.focalFactor}`} />
+                )}
+                <p className="text-xs text-white/30">
+                  {a._count.setupAccessories} setup{a._count.setupAccessories !== 1 ? 's' : ''} vinculado{a._count.setupAccessories !== 1 ? 's' : ''}
+                </p>
+              </div>
+            ))}
+          </div>}
+      <AccessoryForm open={open} onOpenChange={handleClose} initial={editing ?? undefined} />
     </div>
   )
 }
