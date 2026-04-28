@@ -1,0 +1,418 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ──────────────────────────────────────────
+// AUTH (NextAuth + Prisma Adapter)
+// ──────────────────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ──────────────────────────────────────────
+// USER
+// ──────────────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  latitude      Float?
+  longitude     Float?
+  timezone      String    @default("America/Sao_Paulo")
+  bio           String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  telescopes         Telescope[]
+  cameras            Camera[]
+  mounts             Mount[]
+  accessories        Accessory[]
+  setups             EquipmentSetup[]
+  projects           ImagingProject[]
+  observationLogs    ObservationLog[]
+  alertSubscriptions AlertSubscription[]
+  followers          Follow[]            @relation("following")
+  following          Follow[]            @relation("follower")
+}
+
+// ──────────────────────────────────────────
+// EQUIPAMENTOS INDIVIDUAIS
+// ──────────────────────────────────────────
+
+model Telescope {
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String
+  brand              String?
+  model              String?
+  opticalDesign      String?
+  focalLengthMm      Float
+  apertureMm         Float
+  focalRatioOverride Float?
+  obstruction        Float?
+  weightKg           Float?
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setups EquipmentSetup[]
+
+  @@index([userId])
+}
+
+model Camera {
+  id               String    @id @default(cuid())
+  userId           String
+  name             String
+  brand            String?
+  model            String?
+  colorType        ColorType @default(COLOR)
+  sensorName       String?
+  pixelSizeUm      Float
+  sensorWidthPx    Int
+  sensorHeightPx   Int
+  fullWellCapacity Float?
+  readNoiseE       Float?
+  qeMax            Float?
+  cooled           Boolean   @default(false)
+  weightKg         Float?
+  notes            String?   @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setups EquipmentSetup[]
+
+  @@index([userId])
+}
+
+model Mount {
+  id             String    @id @default(cuid())
+  userId         String
+  name           String
+  brand          String?
+  model          String?
+  mountType      MountType @default(EQ)
+  payloadKg      Float?
+  hasGuidingPort Boolean   @default(true)
+  hasPolarScope  Boolean   @default(false)
+  weightKg       Float?
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setups EquipmentSetup[]
+
+  @@index([userId])
+}
+
+model Accessory {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  type        AccessoryType
+  brand       String?
+  model       String?
+  focalFactor Float?
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setupAccessories SetupAccessory[]
+
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────
+// SETUP: combinação nomeada de equipamentos
+// ──────────────────────────────────────────
+
+model EquipmentSetup {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  telescopeId      String
+  cameraId         String
+  mountId          String?
+  isDefault        Boolean  @default(false)
+  effectiveFocalMm Float?
+  filtersAvailable String[]
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  telescope   Telescope        @relation(fields: [telescopeId], references: [id])
+  camera      Camera           @relation(fields: [cameraId], references: [id])
+  mount       Mount?           @relation(fields: [mountId], references: [id])
+  accessories SetupAccessory[]
+  projects    ImagingProject[]
+  sessions    ImagingSession[]
+
+  @@index([userId])
+}
+
+model SetupAccessory {
+  setupId     String
+  accessoryId String
+  setup       EquipmentSetup @relation(fields: [setupId], references: [id], onDelete: Cascade)
+  accessory   Accessory      @relation(fields: [accessoryId], references: [id], onDelete: Cascade)
+
+  @@id([setupId, accessoryId])
+}
+
+// ──────────────────────────────────────────
+// PROJETOS E SESSÕES
+// ──────────────────────────────────────────
+
+model ImagingProject {
+  id                      String        @id @default(cuid())
+  userId                  String
+  setupId                 String?
+  name                    String
+  targetObject            String
+  targetType              String?
+  description             String?       @db.Text
+  status                  ProjectStatus @default(IN_PROGRESS)
+  visibility              Visibility    @default(PRIVATE)
+  raHours                 Float?
+  decDegrees              Float?
+  totalLights             Int           @default(0)
+  totalIntegrationMinutes Float         @default(0)
+  startedAt               DateTime      @default(now())
+  completedAt             DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setup           EquipmentSetup?  @relation(fields: [setupId], references: [id])
+  imagingSessions ImagingSession[]
+  projectFiles    ProjectFile[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ImagingSession {
+  id               String   @id @default(cuid())
+  projectId        String
+  setupId          String?
+  observedAt       DateTime
+  temperatureC     Float?
+  humidityPct      Int?
+  seeingArcsec     Float?
+  sqmValue         Float?
+  cloudCoverPct    Int?
+  bortleScale      Int?
+  filterUsed       String?
+  lightsCount      Int      @default(0)
+  exposureSeconds  Float?
+  gain             Int?
+  offset           Int?
+  binning          String?
+  sensorTempC      Float?
+  guidingRmsArcsec Float?
+  notes            String?  @db.Text
+  rating           Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project ImagingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  setup   EquipmentSetup? @relation(fields: [setupId], references: [id])
+  files   SessionFile[]
+
+  @@index([projectId])
+}
+
+model SessionFile {
+  id           String   @id @default(cuid())
+  sessionId    String
+  fileType     FileType
+  storagePath  String
+  originalName String
+  sizeBytes    BigInt
+  exifData     Json?
+  createdAt    DateTime @default(now())
+
+  session ImagingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model ProjectFile {
+  id          String          @id @default(cuid())
+  projectId   String
+  fileType    ProjectFileType
+  storagePath String
+  label       String
+  isFinal     Boolean         @default(false)
+  sizeBytes   BigInt?
+  createdAt   DateTime        @default(now())
+
+  project ImagingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ──────────────────────────────────────────
+// DIÁRIO / ALERTAS / REDE SOCIAL
+// ──────────────────────────────────────────
+
+model ObservationLog {
+  id         String   @id @default(cuid())
+  userId     String
+  loggedAt   DateTime
+  objectName String
+  objectType String?
+  notes      String?  @db.Text
+  rating     Int?
+  isPublic   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AlertSubscription {
+  id           String    @id @default(cuid())
+  userId       String
+  eventType    AlertType
+  advanceHours Int       @default(24)
+  emailEnabled Boolean   @default(true)
+  pushEnabled  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventType])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower",  fields: [followerId],  references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+}
+
+// ──────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────
+
+enum ColorType {
+  COLOR
+  MONO
+  DSLR
+}
+
+enum MountType {
+  EQ
+  ALT_AZ
+  DOBSONIAN
+  FORK
+  TRACKING
+}
+
+enum AccessoryType {
+  REDUCER_FLATTENER
+  BARLOW
+  OAG
+  FILTER_WHEEL
+  FOCUSER
+  ROTATOR
+  DEW_HEATER
+  FILTER_INDIVIDUAL
+  OTHER
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  READY_TO_PROCESS
+  PROCESSING
+  COMPLETED
+  ARCHIVED
+}
+
+enum Visibility {
+  PRIVATE
+  FRIENDS
+  PUBLIC
+}
+
+enum FileType {
+  LIGHT
+  DARK
+  FLAT
+  BIAS
+  MASTER_DARK
+  MASTER_FLAT
+  MASTER_BIAS
+}
+
+enum ProjectFileType {
+  STACK
+  MASTER_DARK
+  MASTER_FLAT
+  FINAL_JPEG
+  FINAL_TIFF
+  OTHER
+}
+
+enum AlertType {
+  METEOR_SHOWER
+  ECLIPSE_SOLAR
+  ECLIPSE_LUNAR
+  ISS_PASS
+  PLANET_OPPOSITION
+  COMET
+  CONJUNCTION
+  APOD
+}
