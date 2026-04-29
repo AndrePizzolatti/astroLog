@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,36 +12,50 @@ import { Modal } from '@/components/ui/modal'
 const FILTERS = ['L', 'R', 'G', 'B', 'Ha', 'OIII', 'SII']
 
 const schema = z.object({
-  projectId:       z.string(),
-  setupId:         z.string().optional(),
-  observedAt:      z.string(),
-  filterUsed:      z.string().optional(),
-  lightsCount:     z.coerce.number().int().min(0).default(0),
-  exposureSeconds: z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  gain:            z.coerce.number().int().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  offset:          z.coerce.number().int().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  binning:         z.string().optional(),
-  sensorTempC:     z.coerce.number().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  temperatureC:    z.coerce.number().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  humidityPct:     z.coerce.number().int().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  seeingArcsec:    z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  sqmValue:        z.coerce.number().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  bortleScale:     z.coerce.number().int().min(1).max(9).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  cloudCoverPct:   z.coerce.number().int().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  projectId:        z.string(),
+  setupId:          z.string().optional(),
+  observedAt:       z.string(),
+  filterUsed:       z.string().optional(),
+  lightsCount:      z.coerce.number().int().min(0).default(0),
+  exposureSeconds:  z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  gain:             z.coerce.number().int().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  offset:           z.coerce.number().int().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  binning:          z.string().optional(),
+  sensorTempC:      z.coerce.number().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  temperatureC:     z.coerce.number().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  humidityPct:      z.coerce.number().int().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  seeingArcsec:     z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  sqmValue:         z.coerce.number().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  bortleScale:      z.coerce.number().int().min(1).max(9).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  cloudCoverPct:    z.coerce.number().int().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
   guidingRmsArcsec: z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  rating:          z.coerce.number().int().min(1).max(5).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  notes:           z.string().optional(),
+  rating:           z.coerce.number().int().min(1).max(5).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  notes:            z.string().optional(),
 })
 
 type FormValues = z.input<typeof schema>
+
+export type SessionInitial = {
+  id: string; projectId: string; setupId?: string | null
+  observedAt: Date | string; filterUsed?: string | null
+  lightsCount: number; exposureSeconds?: number | null
+  gain?: number | null; offset?: number | null; binning?: string | null
+  sensorTempC?: number | null; temperatureC?: number | null
+  humidityPct?: number | null; seeingArcsec?: number | null
+  sqmValue?: number | null; bortleScale?: number | null
+  cloudCoverPct?: number | null; guidingRmsArcsec?: number | null
+  rating?: number | null; notes?: string | null
+}
 
 interface Props {
   projectId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  initial?: SessionInitial
 }
 
-export function SessionForm({ projectId, open, onOpenChange }: Props) {
+export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
+  const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
   const { data: setups } = api.setups.list.useQuery()
@@ -56,20 +71,66 @@ export function SessionForm({ projectId, open, onOpenChange }: Props) {
 
   const selectedFilter = watch('filterUsed')
 
+  useEffect(() => {
+    if (open) {
+      reset(initial ? {
+        projectId:        initial.projectId,
+        setupId:          initial.setupId ?? '',
+        observedAt:       format(new Date(initial.observedAt), "yyyy-MM-dd'T'HH:mm"),
+        filterUsed:       initial.filterUsed ?? undefined,
+        lightsCount:      initial.lightsCount,
+        exposureSeconds:  initial.exposureSeconds ?? '',
+        gain:             initial.gain ?? '',
+        offset:           initial.offset ?? '',
+        binning:          initial.binning ?? '',
+        sensorTempC:      initial.sensorTempC ?? '',
+        temperatureC:     initial.temperatureC ?? '',
+        humidityPct:      initial.humidityPct ?? '',
+        seeingArcsec:     initial.seeingArcsec ?? '',
+        sqmValue:         initial.sqmValue ?? '',
+        bortleScale:      initial.bortleScale ?? '',
+        cloudCoverPct:    initial.cloudCoverPct ?? '',
+        guidingRmsArcsec: initial.guidingRmsArcsec ?? '',
+        rating:           initial.rating ?? '',
+        notes:            initial.notes ?? '',
+      } : {
+        projectId,
+        observedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        lightsCount: 0,
+      })
+    }
+  }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const invalidate = () => {
+    utils.sessions.list.invalidate({ projectId })
+    utils.projects.byId.invalidate({ id: projectId })
+  }
+
   const create = api.sessions.create.useMutation({
-    onSuccess: () => {
-      utils.sessions.list.invalidate({ projectId })
-      utils.projects.byId.invalidate()
-      toast('Sessão registrada!')
-      reset()
-      onOpenChange(false)
-    },
+    onSuccess: () => { invalidate(); toast('Sessão registrada!'); reset(); onOpenChange(false) },
     onError: (e) => toast(e.message, 'error'),
   })
 
+  const update = api.sessions.update.useMutation({
+    onSuccess: () => { invalidate(); toast('Sessão atualizada!'); onOpenChange(false) },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function onSubmit(data: FormValues) {
+    const isoDate = new Date(data.observedAt).toISOString()
+    if (isEdit) {
+      update.mutate({ id: initial!.id, ...(data as any), observedAt: isoDate })
+    } else {
+      create.mutate({ ...(data as any), observedAt: isoDate })
+    }
+  }
+
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Nova Sessão" description="Registre uma noite de captura" className="max-w-2xl">
-      <form onSubmit={handleSubmit(d => create.mutate({ ...d as any, observedAt: new Date(d.observedAt).toISOString() }))} className="space-y-5">
+    <Modal open={open} onOpenChange={onOpenChange}
+      title={isEdit ? 'Editar Sessão' : 'Nova Sessão'}
+      description={isEdit ? undefined : 'Registre uma noite de captura'}
+      className="max-w-2xl">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
         {/* Basic */}
         <div className="grid grid-cols-2 gap-3">
@@ -192,7 +253,7 @@ export function SessionForm({ projectId, open, onOpenChange }: Props) {
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
           <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando…' : 'Registrar Sessão'}
+            {isSubmitting ? 'Salvando…' : isEdit ? 'Salvar' : 'Registrar Sessão'}
           </button>
         </div>
       </form>

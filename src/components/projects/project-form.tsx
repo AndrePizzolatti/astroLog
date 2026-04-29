@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -30,12 +31,20 @@ const STATUS_OPTIONS = [
   { value: 'ARCHIVED',         label: 'Arquivado' },
 ]
 
+export type ProjectInitial = {
+  id: string; name: string; targetObject: string; targetType?: string | null
+  description?: string | null; setupId?: string | null; status: string
+  visibility: string; raHours?: number | null; decDegrees?: number | null
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initial?: ProjectInitial
 }
 
-export function ProjectForm({ open, onOpenChange }: Props) {
+export function ProjectForm({ open, onOpenChange, initial }: Props) {
+  const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
   const { data: setups } = api.setups.list.useQuery()
@@ -45,19 +54,50 @@ export function ProjectForm({ open, onOpenChange }: Props) {
     defaultValues: { status: 'IN_PROGRESS', visibility: 'PRIVATE' },
   })
 
+  useEffect(() => {
+    if (open) {
+      reset(initial ? {
+        name:         initial.name,
+        targetObject: initial.targetObject,
+        targetType:   initial.targetType ?? '',
+        description:  initial.description ?? '',
+        setupId:      initial.setupId ?? '',
+        status:       initial.status as any,
+        visibility:   initial.visibility as any,
+        raHours:      initial.raHours ?? '',
+        decDegrees:   initial.decDegrees ?? '',
+      } : { status: 'IN_PROGRESS', visibility: 'PRIVATE' })
+    }
+  }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const invalidate = () => {
+    utils.projects.list.invalidate()
+    if (isEdit) utils.projects.byId.invalidate({ id: initial!.id })
+  }
+
   const create = api.projects.create.useMutation({
-    onSuccess: () => {
-      utils.projects.list.invalidate()
-      toast('Projeto criado!')
-      reset()
-      onOpenChange(false)
-    },
+    onSuccess: () => { invalidate(); toast('Projeto criado!'); reset(); onOpenChange(false) },
     onError: (e) => toast(e.message, 'error'),
   })
 
+  const update = api.projects.update.useMutation({
+    onSuccess: () => { invalidate(); toast('Projeto atualizado!'); onOpenChange(false) },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function onSubmit(data: FormValues) {
+    if (isEdit) {
+      update.mutate({ id: initial!.id, ...(data as any) })
+    } else {
+      create.mutate(data as any)
+    }
+  }
+
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="Novo Projeto" description="Defina o alvo e o setup para seu projeto de astrofotografia">
-      <form onSubmit={handleSubmit(d => create.mutate(d as any))} className="space-y-4">
+    <Modal open={open} onOpenChange={onOpenChange}
+      title={isEdit ? 'Editar Projeto' : 'Novo Projeto'}
+      description={isEdit ? undefined : 'Defina o alvo e o setup para seu projeto de astrofotografia'}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="input-label">Nome do projeto *</label>
@@ -110,7 +150,7 @@ export function ProjectForm({ open, onOpenChange }: Props) {
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
           <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Criando…' : 'Criar Projeto'}
+            {isSubmitting ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar Projeto'}
           </button>
         </div>
       </form>

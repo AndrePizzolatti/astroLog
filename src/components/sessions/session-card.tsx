@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Star, Trash2 } from 'lucide-react'
+import { Star, Trash2, Pencil } from 'lucide-react'
 import { cn, filterPillClass, formatIntegration } from '@/lib/utils'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
@@ -16,18 +16,25 @@ interface SessionCardProps {
     lightsCount: number
     exposureSeconds: number | null
     gain: number | null
+    offset: number | null
+    binning: string | null
+    sensorTempC: number | null
+    temperatureC: number | null
+    humidityPct: number | null
     seeingArcsec: number | null
     sqmValue: number | null
     bortleScale: number | null
+    cloudCoverPct: number | null
     guidingRmsArcsec: number | null
     rating: number | null
     notes: string | null
     setup: { name: string } | null
     files: Array<{ id: string; fileType: string; originalName: string }>
   }
+  onEdit?: () => void
 }
 
-export function SessionCard({ session }: SessionCardProps) {
+export function SessionCard({ session, onEdit }: SessionCardProps) {
   const { toast } = useToast()
   const utils = api.useUtils()
 
@@ -55,9 +62,14 @@ export function SessionCard({ session }: SessionCardProps) {
           </p>
           {session.setup && <p className="text-xs text-white/40">{session.setup.name}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {session.filterUsed && (
             <span className={cn('filter-pill', filterPillClass(session.filterUsed))}>{session.filterUsed}</span>
+          )}
+          {onEdit && (
+            <button onClick={onEdit} className="text-white/20 hover:text-white/60 transition-colors p-1">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
           )}
           <button
             onClick={() => { if (confirm('Remover sessão?')) del.mutate({ id: session.id }) }}
@@ -76,15 +88,19 @@ export function SessionCard({ session }: SessionCardProps) {
           </span>
         )}
         {session.gain != null && <span>Gain {session.gain}</span>}
+        {session.binning && <span>Bin {session.binning}</span>}
+        {session.sensorTempC != null && <span>{session.sensorTempC}°C sensor</span>}
       </div>
 
       {/* Conditions */}
       {(session.seeingArcsec || session.sqmValue || session.bortleScale || session.guidingRmsArcsec) && (
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/40 pt-2 border-t border-white/5">
-          {session.seeingArcsec   && <span>Seeing {session.seeingArcsec}"</span>}
-          {session.sqmValue       && <span>SQM {session.sqmValue}</span>}
-          {session.bortleScale    && <span>Bortle {session.bortleScale}</span>}
+          {session.seeingArcsec    && <span>Seeing {session.seeingArcsec}"</span>}
+          {session.sqmValue        && <span>SQM {session.sqmValue}</span>}
+          {session.bortleScale     && <span>Bortle {session.bortleScale}</span>}
           {session.guidingRmsArcsec && <span>Guiagem {session.guidingRmsArcsec}"</span>}
+          {session.temperatureC != null && <span>{session.temperatureC}°C</span>}
+          {session.humidityPct != null  && <span>{session.humidityPct}% umidade</span>}
         </div>
       )}
 
