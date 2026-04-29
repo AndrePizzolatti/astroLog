@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, FolderOpen } from 'lucide-react'
+import { Plus, Search, FolderOpen, Layers, Camera, Clock, CalendarDays, Eye, Cloud, CloudRain } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { ProjectCard }  from '@/components/projects/project-card'
 import { ProjectForm }  from '@/components/projects/project-form'
@@ -16,6 +16,27 @@ const STATUS_FILTERS = [
   { value: 'ARCHIVED',         label: 'Arquivados' },
 ] as const
 
+function nightScoreColor(score: number) {
+  if (score >= 80) return 'text-aurora-400'
+  if (score >= 60) return 'text-green-400'
+  if (score >= 40) return 'text-amber-400'
+  if (score >= 20) return 'text-orange-400'
+  return 'text-red-400'
+}
+
+function nightScoreBg(score: number) {
+  if (score >= 80) return 'bg-aurora-400/10 border-aurora-400/20'
+  if (score >= 60) return 'bg-green-400/10 border-green-400/20'
+  if (score >= 40) return 'bg-amber-400/10 border-amber-400/20'
+  if (score >= 20) return 'bg-orange-400/10 border-orange-400/20'
+  return 'bg-red-400/10 border-red-400/20'
+}
+
+function formatHours(h: number) {
+  if (h < 1) return `${Math.round(h * 60)}m`
+  return `${h.toFixed(1)}h`
+}
+
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const [search, setSearch]             = useState('')
@@ -24,11 +45,20 @@ export default function DashboardPage() {
   const { data: projects, isLoading } = api.projects.list.useQuery(
     statusFilter ? { status: statusFilter as any } : undefined,
   )
+  const { data: weather } = api.weather.forecast.useQuery()
+
+  // Stats computed from projects list (all projects, not filtered)
+  const allProjects = projects ?? []
+  const totalSessions   = allProjects.reduce((s, p) => s + p._count.imagingSessions, 0)
+  const totalLights     = allProjects.reduce((s, p) => s + p.totalLights, 0)
+  const totalHours      = allProjects.reduce((s, p) => s + p.totalIntegrationMinutes, 0) / 60
 
   const filtered = projects?.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.targetObject.toLowerCase().includes(search.toLowerCase()),
   )
+
+  const upcomingNights = weather?.nights.slice(0, 3) ?? []
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -42,9 +72,68 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="card p-3 flex items-center gap-3">
+          <Layers className="w-4 h-4 text-cosmos-400 shrink-0" />
+          <div>
+            <p className="text-lg font-bold mono text-white leading-none">{allProjects.length}</p>
+            <p className="text-xs text-white/40 mt-0.5">projetos</p>
+          </div>
+        </div>
+        <div className="card p-3 flex items-center gap-3">
+          <CalendarDays className="w-4 h-4 text-nebula-400 shrink-0" />
+          <div>
+            <p className="text-lg font-bold mono text-white leading-none">{totalSessions}</p>
+            <p className="text-xs text-white/40 mt-0.5">sessões</p>
+          </div>
+        </div>
+        <div className="card p-3 flex items-center gap-3">
+          <Camera className="w-4 h-4 text-aurora-400 shrink-0" />
+          <div>
+            <p className="text-lg font-bold mono text-white leading-none">{totalLights.toLocaleString('pt-BR')}</p>
+            <p className="text-xs text-white/40 mt-0.5">frames</p>
+          </div>
+        </div>
+        <div className="card p-3 flex items-center gap-3">
+          <Clock className="w-4 h-4 text-star-400 shrink-0" />
+          <div>
+            <p className="text-lg font-bold mono text-white leading-none">{formatHours(totalHours)}</p>
+            <p className="text-xs text-white/40 mt-0.5">integração</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Mini weather strip */}
+      {upcomingNights.length > 0 && (
+        <div className="card p-3 mb-6 flex items-center gap-4 overflow-x-auto">
+          <p className="text-xs text-white/30 uppercase tracking-wider shrink-0">Próximas noites</p>
+          <div className="flex gap-2 flex-1">
+            {upcomingNights.map(night => (
+              <div
+                key={night.date}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs shrink-0',
+                  nightScoreBg(night.score),
+                )}
+              >
+                {night.cloudCoverAvg < 40 ? (
+                  <Eye className="w-3 h-3 text-aurora-400 shrink-0" />
+                ) : night.precipRisk > 40 ? (
+                  <CloudRain className="w-3 h-3 text-blue-400 shrink-0" />
+                ) : (
+                  <Cloud className="w-3 h-3 text-white/30 shrink-0" />
+                )}
+                <span className={cn('font-bold mono', nightScoreColor(night.score))}>{night.score}</span>
+                <span className="text-white/30">{night.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        {/* Search */}
         <div className="relative flex-1 min-w-48 max-w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
           <input
@@ -55,7 +144,6 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Status pills */}
         <div className="flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map(f => (
             <button
