@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,13 +18,58 @@ const schema = z.object({
 
 type FormValues = z.input<typeof schema>
 
+const TIMEZONES = [
+  { value: 'America/Sao_Paulo',  label: 'America/Sao_Paulo (UTC-3)' },
+  { value: 'America/Manaus',     label: 'America/Manaus (UTC-4)' },
+  { value: 'America/Fortaleza',  label: 'America/Fortaleza (UTC-3, sem horário de verão)' },
+  { value: 'America/Belem',      label: 'America/Belem (UTC-3)' },
+  { value: 'America/Recife',     label: 'America/Recife (UTC-3)' },
+  { value: 'America/Cuiaba',     label: 'America/Cuiaba (UTC-4)' },
+  { value: 'America/Porto_Velho', label: 'America/Porto_Velho (UTC-4)' },
+  { value: 'UTC',                label: 'UTC' },
+]
+
 export default function SettingsPage() {
   const { data: session } = useSession()
   const { toast } = useToast()
+  const utils = api.useUtils()
 
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<FormValues>({
+  const { data: profile, isLoading } = api.user.getProfile.useQuery()
+
+  const { register, handleSubmit, reset, formState: { isSubmitting, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    defaultValues: { timezone: 'America/Sao_Paulo' },
   })
+
+  useEffect(() => {
+    if (profile) {
+      reset({
+        latitude:  profile.latitude  ?? '',
+        longitude: profile.longitude ?? '',
+        timezone:  profile.timezone  ?? 'America/Sao_Paulo',
+        bio:       profile.bio       ?? '',
+      })
+    }
+  }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const update = api.user.updateProfile.useMutation({
+    onSuccess: () => {
+      utils.user.getProfile.invalidate()
+      utils.weather.forecast.invalidate()
+      toast('Configurações salvas!')
+      reset(undefined, { keepValues: true })
+    },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function onSubmit(data: FormValues) {
+    update.mutate({
+      latitude:  typeof data.latitude  === 'number' ? data.latitude  : null,
+      longitude: typeof data.longitude === 'number' ? data.longitude : null,
+      timezone:  data.timezone,
+      bio:       data.bio,
+    })
+  }
 
   return (
     <div className="p-8 max-w-2xl mx-auto space-y-8">
@@ -34,62 +80,96 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Profile */}
-      <div className="card p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <User className="w-4 h-4 text-cosmos-400" />
-          <h2 className="text-sm font-semibold text-white">Perfil</h2>
-        </div>
-        <div className="flex items-center gap-3">
-          {session?.user?.image && (
-            <img src={session.user.image} alt="" className="w-10 h-10 rounded-full" />
-          )}
-          <div>
-            <p className="text-sm font-medium text-white">{session?.user?.name}</p>
-            <p className="text-xs text-white/40">{session?.user?.email}</p>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Profile */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <User className="w-4 h-4 text-cosmos-400" />
+            <h2 className="text-sm font-semibold text-white">Perfil</h2>
           </div>
-        </div>
-        <div>
-          <label className="input-label">Bio</label>
-          <textarea {...register('bio')} className="input" rows={3} placeholder="Astrofotógrafo amador…" />
-          <p className="text-xs text-white/25 mt-1">Aparece no perfil público (se publicado)</p>
-        </div>
-      </div>
 
-      {/* Location */}
-      <div className="card p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <MapPin className="w-4 h-4 text-cosmos-400" />
-          <h2 className="text-sm font-semibold text-white">Localização</h2>
-        </div>
-        <p className="text-xs text-white/40">
-          Usada para calcular a previsão do tempo local e objetos visíveis da sua posição.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="input-label">Latitude</label>
-            <input {...register('latitude')} type="number" step="0.0001" className="input" placeholder="-27.5969" />
+          {/* Avatar + name */}
+          <div className="flex items-center gap-3">
+            {session?.user?.image ? (
+              <img src={session.user.image} alt="" className="w-10 h-10 rounded-full" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-cosmos-500/30 flex items-center justify-center text-sm font-bold text-cosmos-300">
+                {session?.user?.name?.charAt(0) ?? '?'}
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium text-white">{session?.user?.name}</p>
+              <p className="text-xs text-white/40">{session?.user?.email}</p>
+            </div>
           </div>
+
           <div>
-            <label className="input-label">Longitude</label>
-            <input {...register('longitude')} type="number" step="0.0001" className="input" placeholder="-48.5495" />
+            <label className="input-label">Bio</label>
+            <textarea {...register('bio')} className="input" rows={3} placeholder="Astrofotógrafo amador na costa catarinense…" />
+            <p className="text-xs text-white/25 mt-1">Aparece no perfil público (se publicado)</p>
           </div>
         </div>
-        <div>
-          <label className="input-label">Fuso horário</label>
-          <select {...register('timezone')} className="input">
-            <option value="America/Sao_Paulo">America/Sao_Paulo (UTC-3)</option>
-            <option value="America/Manaus">America/Manaus (UTC-4)</option>
-            <option value="America/Fortaleza">America/Fortaleza (UTC-3, sem horário de verão)</option>
-            <option value="UTC">UTC</option>
-          </select>
+
+        {/* Location */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <MapPin className="w-4 h-4 text-cosmos-400" />
+            <h2 className="text-sm font-semibold text-white">Localização</h2>
+          </div>
+          <p className="text-xs text-white/40">
+            Usada para calcular a previsão do tempo local e altitudes dos objetos celestes.
+          </p>
+
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="input h-9 animate-pulse" />
+              <div className="input h-9 animate-pulse" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="input-label">Latitude</label>
+                <input
+                  {...register('latitude')}
+                  type="number" step="0.0001" className="input"
+                  placeholder="-27.5969"
+                />
+              </div>
+              <div>
+                <label className="input-label">Longitude</label>
+                <input
+                  {...register('longitude')}
+                  type="number" step="0.0001" className="input"
+                  placeholder="-48.5495"
+                />
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-white/25">
+            Dica: use o Google Maps para encontrar as coordenadas da sua posição habitual de observação.
+          </p>
+
+          <div>
+            <label className="input-label">Fuso horário</label>
+            <select {...register('timezone')} className="input">
+              {TIMEZONES.map(tz => (
+                <option key={tz.value} value={tz.value}>{tz.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
+
         <div className="flex justify-end">
-          <button className="btn-primary" disabled={isSubmitting}>
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={isSubmitting || !isDirty}
+          >
             {isSubmitting ? 'Salvando…' : 'Salvar Configurações'}
           </button>
         </div>
-      </div>
+      </form>
 
       <div className="card p-4">
         <p className="text-xs text-white/30 text-center">

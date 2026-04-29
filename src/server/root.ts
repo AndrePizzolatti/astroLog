@@ -3,8 +3,10 @@ import { projectsRouter }                                      from './routers/p
 import { sessionsRouter }                                      from './routers/sessions'
 import { telescopeRouter, cameraRouter, mountRouter, accessoryRouter, setupRouter } from './routers/equipment'
 import { weatherRouter }                                       from './routers/weather'
+import { userRouter }                                          from './routers/user'
 
 export const appRouter = router({
+  user:        userRouter,
   projects:   projectsRouter,
   sessions:   sessionsRouter,
   telescopes:  telescopeRouter,
