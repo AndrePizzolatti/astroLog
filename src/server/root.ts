@@ -5,6 +5,7 @@ import { telescopeRouter, cameraRouter, mountRouter, accessoryRouter, setupRoute
 import { weatherRouter }                                       from './routers/weather'
 import { userRouter }                                          from './routers/user'
 import { alertsRouter }                                        from './routers/alerts'
+import { calibrationRouter }                                   from './routers/calibration'
 
 export const appRouter = router({
   user:        userRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   setups:      setupRouter,
   weather:     weatherRouter,
   alerts:      alertsRouter,
+  calibration: calibrationRouter,
 })
 
 export type AppRouter = typeof appRouter

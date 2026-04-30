@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
+import { Check } from 'lucide-react'
 import { api } from '@/lib/trpc'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
 
@@ -45,6 +47,7 @@ export type SessionInitial = {
   sqmValue?: number | null; bortleScale?: number | null
   cloudCoverPct?: number | null; guidingRmsArcsec?: number | null
   rating?: number | null; notes?: string | null
+  calibrationFrameUsages?: Array<{ calibrationFrameId: string; calibrationFrame: { id: string; label: string; frameType: string } }>
 }
 
 interface Props {
@@ -60,7 +63,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
   const utils = api.useUtils()
   const { data: setups } = api.setups.list.useQuery()
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       projectId,
@@ -69,7 +72,27 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
     },
   })
 
-  const selectedFilter = watch('filterUsed')
+  // Calibration state
+  const [selectedCalibIds, setSelectedCalibIds] = useState<Set<string>>(new Set())
+
+  const selectedFilter    = watch('filterUsed')
+  const watchSetupId      = watch('setupId')
+  const watchGain         = watch('gain')
+  const watchExp          = watch('exposureSeconds')
+  const watchTemp         = watch('sensorTempC')
+
+  const gainNum = Number(watchGain)
+  const hasMatchCriteria = !!watchSetupId && !isNaN(gainNum) && gainNum > 0
+
+  const { data: calibMatches } = api.calibration.findMatches.useQuery(
+    {
+      setupId:         watchSetupId!,
+      gain:            gainNum,
+      exposureSeconds: Number(watchExp) || undefined,
+      sensorTempC:     Number(watchTemp) || undefined,
+    },
+    { enabled: hasMatchCriteria, staleTime: 30_000 },
+  )
 
   useEffect(() => {
     if (open) {
@@ -98,31 +121,63 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
         observedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         lightsCount: 0,
       })
+      // Pre-select attached calibration frames
+      const existingIds = initial?.calibrationFrameUsages?.map(u => u.calibrationFrameId) ?? []
+      setSelectedCalibIds(new Set(existingIds))
     }
   }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const invalidate = () => {
+  const create       = api.sessions.create.useMutation()
+  const update       = api.sessions.update.useMutation()
+  const attachCalib  = api.calibration.attachToSession.useMutation()
+  const detachCalib  = api.calibration.detachFromSession.useMutation()
+
+  function invalidate() {
     utils.sessions.list.invalidate({ projectId })
     utils.projects.byId.invalidate({ id: projectId })
   }
 
-  const create = api.sessions.create.useMutation({
-    onSuccess: () => { invalidate(); toast('Sessão registrada!'); reset(); onOpenChange(false) },
-    onError: (e) => toast(e.message, 'error'),
-  })
-
-  const update = api.sessions.update.useMutation({
-    onSuccess: () => { invalidate(); toast('Sessão atualizada!'); onOpenChange(false) },
-    onError: (e) => toast(e.message, 'error'),
-  })
-
-  function onSubmit(data: FormValues) {
+  async function onSubmit(data: FormValues) {
     const isoDate = new Date(data.observedAt).toISOString()
-    if (isEdit) {
-      update.mutate({ id: initial!.id, ...(data as any), observedAt: isoDate })
-    } else {
-      create.mutate({ ...(data as any), observedAt: isoDate })
+    try {
+      if (isEdit) {
+        const updated = await update.mutateAsync({ id: initial!.id, ...(data as any), observedAt: isoDate })
+        const existingIds = new Set(initial?.calibrationFrameUsages?.map(u => u.calibrationFrameId) ?? [])
+        const toAttach = [...selectedCalibIds].filter(id => !existingIds.has(id))
+        const toDetach = [...existingIds].filter(id => !selectedCalibIds.has(id))
+        await Promise.all([
+          ...toAttach.map(id => attachCalib.mutateAsync({ sessionId: updated.id, calibrationFrameId: id })),
+          ...toDetach.map(id => detachCalib.mutateAsync({ sessionId: updated.id, calibrationFrameId: id })),
+        ])
+        invalidate()
+        toast('Sessão atualizada!')
+        onOpenChange(false)
+      } else {
+        const created = await create.mutateAsync({ ...(data as any), observedAt: isoDate })
+        if (selectedCalibIds.size > 0) {
+          await Promise.all(
+            [...selectedCalibIds].map(id =>
+              attachCalib.mutateAsync({ sessionId: created.id, calibrationFrameId: id }),
+            ),
+          )
+        }
+        invalidate()
+        toast('Sessão registrada!')
+        reset()
+        setSelectedCalibIds(new Set())
+        onOpenChange(false)
+      }
+    } catch (e: any) {
+      toast(e.message ?? 'Erro ao salvar sessão', 'error')
     }
+  }
+
+  function toggleCalib(id: string) {
+    setSelectedCalibIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
   }
 
   return (
@@ -199,6 +254,56 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Calibration library matches */}
+        {hasMatchCriteria && (
+          <div>
+            <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Calibrações compatíveis</p>
+            {!calibMatches?.length ? (
+              <p className="text-xs text-white/25 italic">
+                Nenhum frame compatível na biblioteca para este setup/gain.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {calibMatches.map(frame => {
+                  const checked = selectedCalibIds.has(frame.id)
+                  return (
+                    <label
+                      key={frame.id}
+                      className={cn(
+                        'flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors',
+                        checked
+                          ? 'bg-aurora-400/10 border-aurora-400/20'
+                          : 'bg-white/3 border-white/8 hover:bg-white/5',
+                      )}
+                    >
+                      <div
+                        onClick={() => toggleCalib(frame.id)}
+                        className={cn(
+                          'w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
+                          checked ? 'bg-aurora-400 border-aurora-400' : 'border-white/30',
+                        )}
+                      >
+                        {checked && <Check className="w-2.5 h-2.5 text-cosmos-950" />}
+                      </div>
+                      <div className="flex-1 min-w-0" onClick={() => toggleCalib(frame.id)}>
+                        <p className="text-xs font-medium text-white/80">{frame.label}</p>
+                        <p className="text-[10px] text-white/30 mono">
+                          {frame.frameType} · G{frame.gain}
+                          {frame.sensorTempC != null ? ` · ${frame.sensorTempC}°C` : ''}
+                          {frame.exposureSeconds ? ` · ${frame.exposureSeconds}s` : ''}
+                        </p>
+                      </div>
+                      <span className="badge bg-white/5 text-white/25 text-[10px] shrink-0">
+                        {frame.frameCount} frame{frame.frameCount !== 1 ? 's' : ''}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Conditions */}
         <div>

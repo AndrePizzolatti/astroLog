@@ -73,6 +73,7 @@ model User {
   alertSubscriptions AlertSubscription[]
   followers          Follow[]            @relation("following")
   following          Follow[]            @relation("follower")
+  calibrationFrames  CalibrationFrame[]
 }
 
 // ──────────────────────────────────────────
@@ -121,8 +122,9 @@ model Camera {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  setups EquipmentSetup[]
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setups            EquipmentSetup[]
+  calibrationFrames CalibrationFrame[]
 
   @@index([userId])
 }
@@ -260,9 +262,10 @@ model ImagingSession {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  project ImagingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  setup   EquipmentSetup? @relation(fields: [setupId], references: [id])
-  files   SessionFile[]
+  project                ImagingProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  setup                  EquipmentSetup?        @relation(fields: [setupId],   references: [id])
+  files                  SessionFile[]
+  calibrationFrameUsages CalibrationFrameUsage[]
 
   @@index([projectId])
 }
@@ -295,6 +298,50 @@ model ProjectFile {
   project ImagingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+}
+
+// ──────────────────────────────────────────
+// BIBLIOTECA DE CALIBRAÇÃO
+// ──────────────────────────────────────────
+
+model CalibrationFrame {
+  id              String          @id @default(cuid())
+  userId          String
+  cameraId        String
+  frameType       CalibrationType
+  label           String
+  exposureSeconds Float?
+  gain            Int
+  offset          Int?
+  binning         String?
+  sensorTempC     Float?
+  storagePath     String
+  originalName    String
+  sizeBytes       BigInt
+  frameCount      Int             @default(1)
+  notes           String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  user   User                     @relation(fields: [userId],   references: [id], onDelete: Cascade)
+  camera Camera                   @relation(fields: [cameraId], references: [id])
+  usages CalibrationFrameUsage[]
+
+  @@index([userId])
+  @@index([cameraId])
+  @@index([frameType, gain, sensorTempC])
+}
+
+model CalibrationFrameUsage {
+  id                 String   @id @default(cuid())
+  sessionId          String
+  calibrationFrameId String
+  usedAt             DateTime @default(now())
+
+  session          ImagingSession   @relation(fields: [sessionId],          references: [id], onDelete: Cascade)
+  calibrationFrame CalibrationFrame @relation(fields: [calibrationFrameId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, calibrationFrameId])
 }
 
 // ──────────────────────────────────────────
@@ -404,6 +451,13 @@ enum ProjectFileType {
   FINAL_JPEG
   FINAL_TIFF
   OTHER
+}
+
+enum CalibrationType {
+  DARK
+  BIAS
+  MASTER_DARK
+  MASTER_BIAS
 }
 
 enum AlertType {

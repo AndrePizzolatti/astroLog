@@ -38,8 +38,15 @@ export const projectsRouter = router({
           setup: { include: { telescope: true, camera: true, mount: true } },
           imagingSessions: {
             include: {
-              setup: { include: { telescope: true, camera: true } },
-              files: true,
+              setup:  { include: { telescope: true, camera: true } },
+              files:  true,
+              calibrationFrameUsages: {
+                include: {
+                  calibrationFrame: {
+                    select: { id: true, label: true, frameType: true },
+                  },
+                },
+              },
             },
             orderBy: { observedAt: 'desc' },
           },
