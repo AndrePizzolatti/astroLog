@@ -1,0 +1,172 @@
+import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
+import { router, protectedProcedure } from '../trpc'
+
+async function assertSessionOwnership(ctx: any, sessionId: string) {
+  const session = await ctx.prisma.imagingSession.findFirst({
+    where: { id: sessionId, project: { userId: ctx.session.user.id } },
+    include: { project: true },
+  })
+  if (!session) throw new TRPCError({ code: 'NOT_FOUND' })
+  return session
+}
+
+async function recalcProjectMetrics(ctx: any, projectId: string) {
+  const sessions = await ctx.prisma.imagingSession.findMany({
+    where: { projectId },
+    select: { lightsCount: true, exposureSeconds: true },
+  })
+
+  const totalLights = sessions.reduce((sum: number, s: any) => sum + (s.lightsCount ?? 0), 0)
+  const totalIntegrationMinutes = sessions.reduce(
+    (sum: number, s: any) => sum + ((s.lightsCount ?? 0) * (s.exposureSeconds ?? 0)) / 60,
+    0,
+  )
+
+  await ctx.prisma.imagingProject.update({
+    where: { id: projectId },
+    data: { totalLights, totalIntegrationMinutes },
+  })
+}
+
+export const sessionsRouter = router({
+  list: protectedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const project = await ctx.prisma.imagingProject.findFirst({
+        where: { id: input.projectId, userId: ctx.session.user.id },
+      })
+      if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
+
+      return ctx.prisma.imagingSession.findMany({
+        where: { projectId: input.projectId },
+        include: {
+          setup: { include: { telescope: true, camera: true } },
+          files: true,
+        },
+        orderBy: { observedAt: 'desc' },
+      })
+    }),
+
+  create: protectedProcedure
+    .input(z.object({
+      projectId:       z.string(),
+      setupId:         z.string().optional(),
+      observedAt:      z.string().datetime(),
+      temperatureC:    z.number().optional(),
+      humidityPct:     z.number().int().min(0).max(100).optional(),
+      seeingArcsec:    z.number().positive().optional(),
+      sqmValue:        z.number().optional(),
+      cloudCoverPct:   z.number().int().min(0).max(100).optional(),
+      bortleScale:     z.number().int().min(1).max(9).optional(),
+      filterUsed:      z.string().optional(),
+      lightsCount:     z.number().int().min(0).default(0),
+      exposureSeconds: z.number().positive().optional(),
+      gain:            z.number().int().optional(),
+      offset:          z.number().int().optional(),
+      binning:         z.string().optional(),
+      sensorTempC:     z.number().optional(),
+      guidingRmsArcsec: z.number().positive().optional(),
+      notes:           z.string().optional(),
+      rating:          z.number().int().min(1).max(5).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.imagingProject.findFirst({
+        where: { id: input.projectId, userId: ctx.session.user.id },
+      })
+      if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
+
+      if (input.setupId) {
+        const setup = await ctx.prisma.equipmentSetup.findFirst({
+          where: { id: input.setupId, userId: ctx.session.user.id },
+        })
+        if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
+      }
+
+      const session = await ctx.prisma.imagingSession.create({
+        data: { ...input, observedAt: new Date(input.observedAt) },
+        include: { setup: true, files: true },
+      })
+
+      await recalcProjectMetrics(ctx, input.projectId)
+      return session
+    }),
+
+  update: protectedProcedure
+    .input(z.object({
+      id:              z.string(),
+      setupId:         z.string().nullable().optional(),
+      observedAt:      z.string().datetime().optional(),
+      temperatureC:    z.number().nullable().optional(),
+      humidityPct:     z.number().int().min(0).max(100).nullable().optional(),
+      seeingArcsec:    z.number().positive().nullable().optional(),
+      sqmValue:        z.number().nullable().optional(),
+      cloudCoverPct:   z.number().int().min(0).max(100).nullable().optional(),
+      bortleScale:     z.number().int().min(1).max(9).nullable().optional(),
+      filterUsed:      z.string().nullable().optional(),
+      lightsCount:     z.number().int().min(0).optional(),
+      exposureSeconds: z.number().positive().nullable().optional(),
+      gain:            z.number().int().nullable().optional(),
+      offset:          z.number().int().nullable().optional(),
+      binning:         z.string().nullable().optional(),
+      sensorTempC:     z.number().nullable().optional(),
+      guidingRmsArcsec: z.number().positive().nullable().optional(),
+      notes:           z.string().nullable().optional(),
+      rating:          z.number().int().min(1).max(5).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, observedAt, ...data } = input
+      const existing = await assertSessionOwnership(ctx, id)
+
+      const updated = await ctx.prisma.imagingSession.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(observedAt && { observedAt: new Date(observedAt) }),
+        },
+        include: { setup: true, files: true },
+      })
+
+      await recalcProjectMetrics(ctx, existing.projectId)
+      return updated
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await assertSessionOwnership(ctx, input.id)
+      await ctx.prisma.imagingSession.delete({ where: { id: input.id } })
+      await recalcProjectMetrics(ctx, session.projectId)
+      return { success: true }
+    }),
+
+  addFile: protectedProcedure
+    .input(z.object({
+      sessionId:    z.string(),
+      fileType:     z.enum(['LIGHT','DARK','FLAT','BIAS','MASTER_DARK','MASTER_FLAT','MASTER_BIAS']),
+      storagePath:  z.string(),
+      originalName: z.string(),
+      sizeBytes:    z.number().int().positive(),
+      exifData:     z.any().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSessionOwnership(ctx, input.sessionId)
+      return ctx.prisma.sessionFile.create({
+        data: { ...input, sizeBytes: BigInt(input.sizeBytes) },
+      })
+    }),
+
+  deleteFile: protectedProcedure
+    .input(z.object({ fileId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const file = await ctx.prisma.sessionFile.findUnique({
+        where: { id: input.fileId },
+        include: { session: { include: { project: true } } },
+      })
+      if (!file || file.session.project.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: 'NOT_FOUND' })
+      }
+      await ctx.prisma.sessionFile.delete({ where: { id: input.fileId } })
+      return { storagePath: file.storagePath }
+    }),
+})
