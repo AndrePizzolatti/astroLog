@@ -3,8 +3,9 @@
 import { useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Star, Trash2, Pencil, Upload, X, Plus, Loader2 } from 'lucide-react'
+import { Star, Trash2, Pencil, Upload, X, Plus, Loader2, Copy } from 'lucide-react'
 import { cn, filterPillClass, formatIntegration } from '@/lib/utils'
+import { getMoonPhase } from '@/lib/moon'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
 
@@ -35,9 +36,10 @@ interface SessionCardProps {
     files: Array<{ id: string; fileType: string; originalName: string }>
   }
   onEdit?: () => void
+  onClone?: () => void
 }
 
-export function SessionCard({ session, onEdit }: SessionCardProps) {
+export function SessionCard({ session, onEdit, onClone }: SessionCardProps) {
   const { toast } = useToast()
   const utils = api.useUtils()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -115,10 +117,27 @@ export function SessionCard({ session, onEdit }: SessionCardProps) {
             {format(new Date(session.observedAt), "d 'de' MMM yyyy", { locale: ptBR })}
           </p>
           {session.setup && <p className="text-xs text-white/40">{session.setup.name}</p>}
+          {(() => {
+            const moon = getMoonPhase(new Date(session.observedAt))
+            return (
+              <p className="text-[10px] text-white/25 mt-0.5">
+                {moon.emoji} {moon.label} · {moon.illumination}%
+              </p>
+            )
+          })()}
         </div>
         <div className="flex items-center gap-1.5">
           {session.filterUsed && (
             <span className={cn('filter-pill', filterPillClass(session.filterUsed))}>{session.filterUsed}</span>
+          )}
+          {onClone && (
+            <button
+              onClick={onClone}
+              title="Continuar sessão (herdar parâmetros)"
+              className="text-white/20 hover:text-aurora-400 transition-colors p-1"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
           )}
           {onEdit && (
             <button onClick={onEdit} className="text-white/20 hover:text-white/60 transition-colors p-1">
