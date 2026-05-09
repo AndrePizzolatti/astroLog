@@ -299,12 +299,19 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
   }
 
   function onFITSParsed(fields: FITSFields) {
+    if (fields.observedAt      !== undefined) {
+      setValue('observedAt', format(fields.observedAt, "yyyy-MM-dd'T'HH:mm"))
+      // Allow weather auto-fill to re-run for the new date
+      weatherApplied.current = false
+      setWeatherFilled(false)
+    }
     if (fields.exposureSeconds !== undefined) setValue('exposureSeconds', fields.exposureSeconds as any)
     if (fields.gain            !== undefined) setValue('gain',            fields.gain            as any)
     if (fields.offset          !== undefined) setValue('offset',          fields.offset          as any)
     if (fields.binning         !== undefined) setValue('binning',         fields.binning)
     if (fields.sensorTempC     !== undefined) setValue('sensorTempC',     fields.sensorTempC     as any)
     if (fields.filterUsed      !== undefined) setValue('filterUsed',      fields.filterUsed)
+    // targetName, camera, telescope, ra, dec: exibidos no drop zone, sem campo no formulário
   }
 
   const title = isEdit ? 'Editar Sessão' : isClone ? 'Continuar Sessão' : 'Nova Sessão'

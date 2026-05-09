@@ -8,6 +8,13 @@ export interface FITSFields {
   binning?:         string   // "1×1" | "2×2" | "3×3" | "4×4"
   sensorTempC?:     number
   filterUsed?:      string   // normalizado para os filtros do app
+  // ── Metadados extras do N.I.N.A. / PixInsight ─────────────────────────────
+  observedAt?:      Date     // DATE-OBS
+  targetName?:      string   // OBJECT
+  camera?:          string   // INSTRUME
+  telescope?:       string   // TELESCOP
+  ra?:              string   // RA / OBJCTRA
+  dec?:             string   // DEC / OBJCTDEC
 }
 
 // ── Filtros: normaliza variações de nome para os tokens do app ──────────────
@@ -81,6 +88,28 @@ function parseFITS(buffer: ArrayBuffer): FITSFields {
         case 'FILTER':
           if (str) fields.filterUsed = normalizeFilter(str) ?? str
           break
+        case 'DATE-OBS': {
+          const d = new Date(str)
+          if (!isNaN(d.getTime())) fields.observedAt = d
+          break
+        }
+        case 'OBJECT':
+          if (str) fields.targetName = str
+          break
+        case 'INSTRUME':
+          if (str) fields.camera = str
+          break
+        case 'TELESCOP':
+          if (str) fields.telescope = str
+          break
+        case 'RA':
+        case 'OBJCTRA':
+          if (str && !fields.ra) fields.ra = str
+          break
+        case 'DEC':
+        case 'OBJCTDEC':
+          if (str && !fields.dec) fields.dec = str
+          break
       }
     }
   }
@@ -128,6 +157,20 @@ function parseXISF(buffer: ArrayBuffer): FITSFields {
         const b = Math.round(num)
         if (b >= 1 && b <= 4) fields.binning = `${b}×${b}`; break
       }
+      case 'Observation:Time:Start': {
+        const d = new Date(value.replace(/'/g, '').trim())
+        if (!isNaN(d.getTime())) fields.observedAt = d; break
+      }
+      case 'Observation:Object:Name':
+        if (value) fields.targetName = value.replace(/'/g, '').trim(); break
+      case 'Instrument:Camera:Name':
+        if (value) fields.camera = value.replace(/'/g, '').trim(); break
+      case 'Instrument:Telescope:Name':
+        if (value) fields.telescope = value.replace(/'/g, '').trim(); break
+      case 'Observation:Center:RA':
+        if (!isNaN(num)) fields.ra = String(num); break
+      case 'Observation:Center:Dec':
+        if (!isNaN(num)) fields.dec = String(num); break
     }
   }
 
@@ -149,6 +192,12 @@ function applyKV(name: string, value: string, fields: FITSFields) {
       if (!isNaN(num)) fields.sensorTempC = Math.round(num * 10) / 10; break
     case 'FILTER':
       if (str) fields.filterUsed = normalizeFilter(str) ?? str; break
+    case 'DATE-OBS': { const d = new Date(str); if (!isNaN(d.getTime())) fields.observedAt = d; break }
+    case 'OBJECT':   if (str) fields.targetName = str; break
+    case 'INSTRUME': if (str) fields.camera    = str; break
+    case 'TELESCOP': if (str) fields.telescope = str; break
+    case 'RA':       case 'OBJCTRA':   if (str && !fields.ra)  fields.ra  = str; break
+    case 'DEC':      case 'OBJCTDEC':  if (str && !fields.dec) fields.dec = str; break
   }
 }
 

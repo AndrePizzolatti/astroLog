@@ -1,6 +1,8 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { FileImage, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { parseImageHeader, detectFileType, type FITSFields } from '@/lib/fits-parser'
 import { cn } from '@/lib/utils'
@@ -23,6 +25,12 @@ function fieldLabel(key: keyof FITSFields, val: unknown): string {
     case 'binning':         return `Bin ${val}`
     case 'sensorTempC':     return `${val}°C sensor`
     case 'filterUsed':      return `Filtro ${val}`
+    case 'observedAt':      return format(val as Date, "d MMM HH:mm", { locale: ptBR })
+    case 'targetName':      return `Alvo: ${val}`
+    case 'camera':          return `Câm: ${val}`
+    case 'telescope':       return `Tel: ${val}`
+    case 'ra':              return `RA ${val}`
+    case 'dec':             return `Dec ${val}`
     default:                return String(val)
   }
 }
