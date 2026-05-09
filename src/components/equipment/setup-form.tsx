@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
-import { cn, filterPillClass } from '@/lib/utils'
+import { cn, filterPillClass, calculateTelescope } from '@/lib/utils'
 
 const FILTERS = ['L', 'R', 'G', 'B', 'Ha', 'OIII', 'SII']
 
@@ -55,6 +55,24 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
 
   const selectedFilters     = watch('filtersAvailable') ?? []
   const selectedAccessories = watch('accessoryIds') ?? []
+  const watchTelescopeId    = watch('telescopeId')
+  const watchCameraId       = watch('cameraId')
+  const watchEffectiveFocal = watch('effectiveFocalMm')
+
+  const selectedTelescope = telescopes?.find(t => t.id === watchTelescopeId)
+  const selectedCamera    = cameras?.find(c => c.id === watchCameraId)
+
+  const optics = (() => {
+    if (!selectedTelescope || !selectedCamera) return null
+    const focalMm = Number(watchEffectiveFocal) || selectedTelescope.focalLengthMm
+    return calculateTelescope({
+      focalLengthMm:  focalMm,
+      apertureMm:     selectedTelescope.apertureMm,
+      pixelSizeUm:    selectedCamera.pixelSizeUm,
+      sensorWidthPx:  selectedCamera.sensorWidthPx,
+      sensorHeightPx: selectedCamera.sensorHeightPx,
+    })
+  })()
 
   useEffect(() => {
     if (open) {
@@ -156,6 +174,52 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
               Setup padrão
             </label>
           </div>
+
+          {/* Painel de óptica calculada — aparece ao selecionar telescópio + câmera */}
+          {optics && (
+            <div className="col-span-2 space-y-2">
+              <p className="text-[10px] text-white/35 uppercase tracking-wider">Parâmetros do conjunto</p>
+              <div className="grid grid-cols-4 gap-2">
+                <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Escala</p>
+                  <p className="text-sm font-mono font-medium text-white/80">{optics.plateScaleArcsecPx}"</p>
+                  <p className="text-[10px] text-white/30">arcsec/px</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">f/ratio</p>
+                  <p className="text-sm font-mono font-medium text-white/80">f/{optics.focalRatio}</p>
+                  {Number(watchEffectiveFocal) > 0 && selectedTelescope && (
+                    <p className="text-[10px] text-white/30">
+                      {(Number(watchEffectiveFocal) / selectedTelescope.focalLengthMm).toFixed(2)}x
+                    </p>
+                  )}
+                </div>
+                <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">FoV</p>
+                  <p className="text-sm font-mono font-medium text-white/80">
+                    {optics.fovWidthArcmin}′
+                  </p>
+                  <p className="text-[10px] text-white/30">× {optics.fovHeightArcmin}′</p>
+                </div>
+                <div className={cn(
+                  'p-2.5 rounded-lg border',
+                  optics.sampling === 'optimal'       && 'bg-aurora-400/8 border-aurora-400/20',
+                  optics.sampling === 'undersampled'  && 'bg-amber-400/8 border-amber-400/20',
+                  optics.sampling === 'oversampled'   && 'bg-blue-400/8 border-blue-400/20',
+                )}>
+                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Amostragem</p>
+                  <p className={cn(
+                    'text-xs font-medium',
+                    optics.sampling === 'optimal'       && 'text-aurora-300',
+                    optics.sampling === 'undersampled'  && 'text-amber-300',
+                    optics.sampling === 'oversampled'   && 'text-blue-300',
+                  )}>
+                    {optics.samplingHint}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Filters */}
           <div className="col-span-2">

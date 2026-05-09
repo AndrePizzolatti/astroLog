@@ -9,16 +9,15 @@ import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
 
 const schema = z.object({
-  name:               z.string().min(2, 'Nome obrigatório'),
-  brand:              z.string().optional(),
-  model:              z.string().optional(),
-  opticalDesign:      z.string().optional(),
-  focalLengthMm:      z.coerce.number().positive('Focal obrigatória'),
-  apertureMm:         z.coerce.number().positive('Abertura obrigatória'),
-  focalRatioOverride: z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  obstruction:        z.coerce.number().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  weightKg:           z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
-  notes:              z.string().optional(),
+  name:          z.string().min(2, 'Nome obrigatório'),
+  brand:         z.string().optional(),
+  model:         z.string().optional(),
+  opticalDesign: z.string().optional(),
+  focalLengthMm: z.coerce.number().positive('Focal obrigatória'),
+  apertureMm:    z.coerce.number().positive('Abertura obrigatória'),
+  obstruction:   z.coerce.number().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  weightKg:      z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  notes:         z.string().optional(),
 })
 
 type FormValues = z.input<typeof schema>
@@ -41,23 +40,26 @@ export function TelescopeForm({ open, onOpenChange, initial }: Props) {
   const { toast } = useToast()
   const utils = api.useUtils()
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
   })
+
+  const fl = Number(watch('focalLengthMm'))
+  const ap = Number(watch('apertureMm'))
+  const canCompute = fl > 0 && ap > 0
 
   useEffect(() => {
     if (open) {
       reset(initial ? {
-        name:               initial.name,
-        brand:              initial.brand ?? '',
-        model:              initial.model ?? '',
-        opticalDesign:      initial.opticalDesign ?? '',
-        focalLengthMm:      initial.focalLengthMm,
-        apertureMm:         initial.apertureMm,
-        focalRatioOverride: initial.focalRatioOverride ?? '',
-        obstruction:        initial.obstruction ?? '',
-        weightKg:           initial.weightKg ?? '',
-        notes:              initial.notes ?? '',
+        name:          initial.name,
+        brand:         initial.brand ?? '',
+        model:         initial.model ?? '',
+        opticalDesign: initial.opticalDesign ?? '',
+        focalLengthMm: initial.focalLengthMm,
+        apertureMm:    initial.apertureMm,
+        obstruction:   initial.obstruction ?? '',
+        weightKg:      initial.weightKg ?? '',
+        notes:         initial.notes ?? '',
       } : {})
     }
   }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -113,10 +115,21 @@ export function TelescopeForm({ open, onOpenChange, initial }: Props) {
             <input {...register('apertureMm')} type="number" step="1" className="input" placeholder="203" />
             {errors.apertureMm && <p className="input-error">{errors.apertureMm.message}</p>}
           </div>
-          <div>
-            <label className="input-label">f/ override</label>
-            <input {...register('focalRatioOverride')} type="number" step="0.1" className="input" placeholder="10" />
-          </div>
+
+          {/* Parâmetros ópticos calculados automaticamente */}
+          {canCompute && (
+            <div className="col-span-2 grid grid-cols-2 gap-2">
+              <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Razão Focal</p>
+                <p className="text-sm font-mono font-medium text-white/80">f/{(fl / ap).toFixed(1)}</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Limite de Dawes</p>
+                <p className="text-sm font-mono font-medium text-white/80">{(116 / ap).toFixed(2)}"</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="input-label">Obstrução (%)</label>
             <input {...register('obstruction')} type="number" step="1" className="input" placeholder="33" />

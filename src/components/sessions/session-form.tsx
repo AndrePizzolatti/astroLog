@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { format } from 'date-fns'
 import { Check, CloudSun } from 'lucide-react'
 import { api } from '@/lib/trpc'
-import { cn } from '@/lib/utils'
+import { cn, formatIntegration } from '@/lib/utils'
 import { getMoonPhase } from '@/lib/moon'
 import { type FITSFields } from '@/lib/fits-parser'
 import { FITSDropZone } from '@/components/sessions/fits-drop-zone'
@@ -115,9 +115,22 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
   const watchExp       = watch('exposureSeconds')
   const watchTemp      = watch('sensorTempC')
   const observedAt     = watch('observedAt')
+  const watchLights    = watch('lightsCount')
 
-  const gainNum = Number(watchGain)
+  const gainNum    = Number(watchGain)
+  const lightsNum  = Number(watchLights)
+  const expNum     = Number(watchExp)
   const hasMatchCriteria = !!watchSetupId && !isNaN(gainNum) && gainNum > 0
+
+  // Câmera do setup selecionado — disponível porque setups.list inclui camera: true
+  const selectedSetup  = (setups as any[])?.find((s: any) => s.id === watchSetupId)
+  const setupCamera    = selectedSetup?.camera as { sensorWidthPx: number; sensorHeightPx: number } | undefined
+  const fitsMbPerFrame = setupCamera
+    ? (setupCamera.sensorWidthPx * setupCamera.sensorHeightPx * 2) / 1_000_000
+    : null
+
+  const integrationMin = lightsNum > 0 && expNum > 0 ? (lightsNum * expNum) / 60 : null
+  const storageGb      = fitsMbPerFrame && lightsNum > 0 ? (lightsNum * fitsMbPerFrame) / 1000 : null
 
   const { data: calibMatches } = api.calibration.findMatches.useQuery(
     {
@@ -397,6 +410,20 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
               <label className="input-label">Exposição (s)</label>
               <input {...register('exposureSeconds')} type="number" step="0.1" className="input" placeholder="300" />
             </div>
+
+            {/* Preview de integração e armazenamento */}
+            {integrationMin !== null && (
+              <div className="col-span-3 flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-mono text-aurora-300">
+                  {formatIntegration(integrationMin)}
+                </span>
+                {storageGb !== null && (
+                  <span className="text-xs text-white/30">
+                    · ~{storageGb >= 1 ? `${storageGb.toFixed(1)} GB` : `${(storageGb * 1000).toFixed(0)} MB`} estimado
+                  </span>
+                )}
+              </div>
+            )}
             <div>
               <label className="input-label">Gain</label>
               <input {...register('gain')} type="number" step="1" className="input" placeholder="100" />
@@ -466,6 +493,16 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Alerta de calibração */}
+        {lightsNum > 0 && selectedCalibIds.size === 0 && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-400/8 border border-amber-400/20">
+            <span className="text-amber-400 text-sm shrink-0">⚠</span>
+            <p className="text-xs text-amber-300/80">
+              Sessão sem frames de calibração vinculados. Associe Darks, Flats ou Bias da biblioteca para manter o rastreamento completo.
+            </p>
           </div>
         )}
 

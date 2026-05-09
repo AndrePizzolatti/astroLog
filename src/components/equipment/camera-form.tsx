@@ -47,10 +47,15 @@ export function CameraForm({ open, onOpenChange, initial }: Props) {
   const { toast } = useToast()
   const utils = api.useUtils()
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { colorType: 'COLOR', cooled: false },
   })
+
+  const px = Number(watch('pixelSizeUm'))
+  const w  = Number(watch('sensorWidthPx'))
+  const h  = Number(watch('sensorHeightPx'))
+  const canComputeSensor = px > 0 && w > 0 && h > 0
 
   useEffect(() => {
     if (open) {
@@ -137,6 +142,26 @@ export function CameraForm({ open, onOpenChange, initial }: Props) {
             <input {...register('sensorHeightPx')} type="number" step="1" className="input" placeholder="4176" />
             {errors.sensorHeightPx && <p className="input-error">{errors.sensorHeightPx.message}</p>}
           </div>
+
+          {/* Parâmetros do sensor calculados automaticamente */}
+          {canComputeSensor && (
+            <div className="col-span-2 grid grid-cols-3 gap-2">
+              <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Megapixels</p>
+                <p className="text-sm font-mono font-medium text-white/80">{(w * h / 1_000_000).toFixed(1)} MP</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Sensor (mm)</p>
+                <p className="text-sm font-mono font-medium text-white/80">
+                  {(w * px / 1000).toFixed(1)} × {(h * px / 1000).toFixed(1)}
+                </p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">FITS 16-bit</p>
+                <p className="text-sm font-mono font-medium text-white/80">~{(w * h * 2 / 1_000_000).toFixed(0)} MB</p>
+              </div>
+            </div>
+          )}
           <div>
             <label className="input-label">Read noise (e⁻)</label>
             <input {...register('readNoiseE')} type="number" step="0.1" className="input" placeholder="3.3" />
