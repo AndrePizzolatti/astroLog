@@ -33,6 +33,29 @@ function typeColor(t: string) {
   return TYPE_COLORS[t as CalibType] ?? 'bg-white/10 text-white/40 border-white/20'
 }
 
+// days until expiry: Bias 365d, Darks 180d
+const EXPIRY_DAYS: Record<CalibType, number> = {
+  DARK: 180, BIAS: 365, MASTER_DARK: 180, MASTER_BIAS: 365,
+}
+
+function calibDaysLeft(frameType: string, createdAt: Date | string): number {
+  const maxDays = EXPIRY_DAYS[frameType as CalibType] ?? 180
+  const created = new Date(createdAt)
+  const expiresAt = new Date(created.getTime() + maxDays * 24 * 60 * 60 * 1000)
+  return Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+}
+
+function ExpiryBadge({ frameType, createdAt }: { frameType: string; createdAt: Date | string }) {
+  const days = calibDaysLeft(frameType, createdAt)
+  if (days < 0) return (
+    <span className="badge border bg-red-500/20 text-red-300 border-red-500/30">Vencido</span>
+  )
+  if (days < 30) return (
+    <span className="badge border bg-amber-500/20 text-amber-300 border-amber-500/30">{days}d</span>
+  )
+  return null
+}
+
 function buildAutoLabel(
   frameType: string,
   gain: string | number,
@@ -89,6 +112,7 @@ function CalibCard({ frame, onDelete }: { frame: any; onDelete: () => void }) {
           <p className="text-xs text-white/40">{frame.camera.name}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <ExpiryBadge frameType={frame.frameType} createdAt={frame.createdAt} />
           <CalibBadge type={frame.frameType} />
           {confirming ? (
             <div className="flex gap-1">
