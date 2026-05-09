@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CloudSun, Cloud, CloudRain, Wind, Eye, MapPin, ChevronDown, ChevronUp, Settings } from 'lucide-react'
+import { CloudSun, Cloud, CloudRain, Wind, Eye, MapPin, ChevronDown, ChevronUp, Settings, LocateFixed, X } from 'lucide-react'
 import { api } from '@/lib/trpc'
+import { CitySearch } from '@/components/ui/city-search'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -63,7 +64,6 @@ function HourlyDetail({ hours }: { hours: HourEntry[] }) {
         return (
           <div key={h.time} className="flex items-center gap-2 text-[11px]">
             <span className="w-6 shrink-0 text-white/30 mono">{label}</span>
-            {/* cloud cover bar */}
             <div className="flex-1 bg-white/5 rounded-sm h-1.5 min-w-0">
               <div
                 className={cn('h-1.5 rounded-sm transition-all', cloudBarColor(h.cloud))}
@@ -146,9 +146,34 @@ function NightCard({ night }: { night: any }) {
 
 export default function WeatherPage() {
   const { data: profile } = api.user.getProfile.useQuery()
-  const { data, isLoading, error } = api.weather.forecast.useQuery()
 
-  const hasLocation = !!(profile?.latitude && profile?.longitude)
+  // Override de localização — temporário, não salvo no perfil
+  const [override, setOverride] = useState<{ lat: number; lon: number; name: string } | null>(null)
+  const [gpsLoading, setGpsLoading] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+
+  const queryInput = override ? { latitude: override.lat, longitude: override.lon } : undefined
+  const { data, isLoading, error } = api.weather.forecast.useQuery(queryInput)
+
+  const hasProfileLocation = !!(profile?.latitude && profile?.longitude)
+
+  function handleGPS() {
+    if (!navigator.geolocation) return
+    setGpsLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setOverride({
+          lat:  pos.coords.latitude,
+          lon:  pos.coords.longitude,
+          name: 'Localização atual',
+        })
+        setGpsLoading(false)
+        setShowSearch(false)
+      },
+      () => setGpsLoading(false),
+      { timeout: 8000 },
+    )
+  }
 
   if (isLoading) return (
     <div className="p-8 max-w-4xl mx-auto space-y-4">
@@ -172,27 +197,83 @@ export default function WeatherPage() {
           <h1 className="page-title">Previsão do Céu</h1>
           <p className="page-subtitle">Qualidade das próximas 7 noites para astrofotografia</p>
         </div>
-        <div className="flex items-center gap-3">
-          {data && (
-            <div className="flex items-center gap-1.5 text-xs text-white/30">
-              <MapPin className="w-3 h-3" />
-              <span className="mono">{data.latitude.toFixed(2)}°, {data.longitude.toFixed(2)}°</span>
-            </div>
-          )}
-          <Link href="/dashboard/settings" className="btn-ghost flex items-center gap-1.5 text-xs">
-            <Settings className="w-3.5 h-3.5" /> Localização
-          </Link>
-        </div>
+        <Link href="/dashboard/settings" className="btn-ghost flex items-center gap-1.5 text-xs">
+          <Settings className="w-3.5 h-3.5" /> Configurações
+        </Link>
       </div>
 
-      {/* Location nudge */}
-      {!hasLocation && (
+      {/* Barra de localização */}
+      <div className="card p-3 mb-6 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-xs">
+            <MapPin className="w-3.5 h-3.5 text-white/30 shrink-0" />
+            {override ? (
+              <span className="text-white/70 font-medium">{override.name}</span>
+            ) : hasProfileLocation ? (
+              <span className="text-white/50 mono">
+                {profile!.latitude!.toFixed(4)}°, {profile!.longitude!.toFixed(4)}°
+                <span className="text-white/25 ml-1.5">· perfil salvo</span>
+              </span>
+            ) : (
+              <span className="text-amber-400/80">Sem localização — usando padrão (costa catarinense)</span>
+            )}
+            {data && (
+              <span className="text-white/20 mono ml-1">
+                ({data.latitude.toFixed(2)}°, {data.longitude.toFixed(2)}°)
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {override && (
+              <button
+                onClick={() => setOverride(null)}
+                className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors"
+              >
+                <X className="w-3 h-3" /> Usar perfil
+              </button>
+            )}
+            <button
+              onClick={handleGPS}
+              disabled={gpsLoading}
+              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-aurora-400 transition-colors disabled:opacity-40"
+            >
+              <LocateFixed className="w-3.5 h-3.5" />
+              {gpsLoading ? 'Obtendo…' : 'GPS'}
+            </button>
+            <button
+              onClick={() => setShowSearch(v => !v)}
+              className={cn(
+                'flex items-center gap-1.5 text-xs transition-colors',
+                showSearch ? 'text-aurora-400' : 'text-white/40 hover:text-white/70',
+              )}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              Buscar cidade
+            </button>
+          </div>
+        </div>
+
+        {showSearch && (
+          <div>
+            <CitySearch
+              placeholder="Ex: Fraiburgo, Chapecó, Florianópolis…"
+              onSelect={r => {
+                setOverride({ lat: r.latitude, lon: r.longitude, name: r.name })
+                setShowSearch(false)
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Nudge de configuração — só aparece sem override e sem localização salva */}
+      {!override && !hasProfileLocation && (
         <div className="card p-4 mb-6 flex items-center justify-between gap-4 border-amber-500/20 bg-amber-500/5">
           <div className="flex items-center gap-3">
             <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
             <p className="text-sm text-white/70">
-              Configure sua localização para obter previsões exatas.
-              <span className="text-white/40"> Usando padrão: costa catarinense.</span>
+              Salve sua localização nas configurações para previsões permanentes.
             </p>
           </div>
           <Link href="/dashboard/settings" className="btn-secondary text-xs shrink-0">

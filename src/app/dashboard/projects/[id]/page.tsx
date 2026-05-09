@@ -25,6 +25,7 @@ export default function ProjectDetailPage() {
   const [addSession,      setAddSession]      = useState(false)
   const [editProjectOpen, setEditProjectOpen] = useState(false)
   const [editingSession,  setEditingSession]  = useState<any | null>(null)
+  const [cloningSession,  setCloningSession]  = useState<any | null>(null)
 
   const { data: project, isLoading } = api.projects.byId.useQuery({ id })
 
@@ -160,6 +161,7 @@ export default function ProjectDetailPage() {
                 key={s.id}
                 session={s as any}
                 onEdit={() => setEditingSession(s)}
+                onClone={() => setCloningSession({ ...s, id: undefined })}
               />
             ))}
           </div>
@@ -175,6 +177,14 @@ export default function ProjectDetailPage() {
         open={!!editingSession}
         onOpenChange={v => { if (!v) setEditingSession(null) }}
         initial={editingSession ?? undefined}
+      />
+
+      {/* Clone (Continuar) session form */}
+      <SessionForm
+        projectId={id}
+        open={!!cloningSession}
+        onOpenChange={v => { if (!v) setCloningSession(null) }}
+        initial={cloningSession ?? undefined}
       />
 
       {/* Edit project form */}

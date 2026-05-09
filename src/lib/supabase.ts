@@ -15,6 +15,11 @@ export function getSupabaseAdmin() {
 
 export const STORAGE_BUCKET = 'astrolog-files'
 
+export function buildCalibrationPath(userId: string, frameType: string, filename: string): string {
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+  return `${userId}/calibration-library/${frameType}/${safe}`
+}
+
 export function buildStoragePath(
   userId: string,
   projectId: string,

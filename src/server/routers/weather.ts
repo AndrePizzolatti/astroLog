@@ -50,7 +50,79 @@ function scoreLabel(score: number): string {
   return 'Péssimo'
 }
 
+interface OpenMeteoHistoricalResponse {
+  hourly: {
+    time: string[]
+    temperature_2m: number[]
+    relative_humidity_2m: number[]
+    cloud_cover: number[]
+  }
+}
+
 export const weatherRouter = router({
+  // Returns atmospheric conditions for a specific date/hour from the user's location.
+  // Uses forecast API (past_days=14) for recent dates, archive API for older ones.
+  getForDate: protectedProcedure
+    .input(z.object({
+      latitude:  z.number().min(-90).max(90).optional(),
+      longitude: z.number().min(-180).max(180).optional(),
+      dateTime:  z.string(), // "YYYY-MM-DDTHH:mm" in local (BRT) time
+    }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where:  { id: ctx.session.user.id },
+        select: { latitude: true, longitude: true },
+      })
+
+      const lat = input.latitude  ?? user?.latitude  ?? -27.6
+      const lon = input.longitude ?? user?.longitude ?? -48.5
+
+      const dateStr    = input.dateTime.substring(0, 10)  // "YYYY-MM-DD"
+      const targetHour = parseInt(input.dateTime.substring(11, 13))
+
+      const inputDate  = new Date(input.dateTime)
+      const now        = new Date()
+
+      // Refuse future dates beyond 7-day forecast window
+      if (inputDate.getTime() > now.getTime() + 7 * 24 * 60 * 60 * 1000) return null
+
+      const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+      const useArchive = inputDate < fourteenDaysAgo
+
+      let url: string
+      if (useArchive) {
+        url = `https://archive-api.open-meteo.com/v1/archive` +
+          `?latitude=${lat}&longitude=${lon}` +
+          `&hourly=temperature_2m,relative_humidity_2m,cloud_cover` +
+          `&timezone=America%2FSao_Paulo` +
+          `&start_date=${dateStr}&end_date=${dateStr}`
+      } else {
+        url = `https://api.open-meteo.com/v1/forecast` +
+          `?latitude=${lat}&longitude=${lon}` +
+          `&hourly=temperature_2m,relative_humidity_2m,cloud_cover` +
+          `&timezone=America%2FSao_Paulo&past_days=14&forecast_days=7`
+      }
+
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return null
+        const data = (await res.json()) as OpenMeteoHistoricalResponse
+
+        const idx = data.hourly.time.findIndex(t =>
+          t.startsWith(dateStr) && parseInt(t.substring(11, 13)) === targetHour,
+        )
+        if (idx === -1) return null
+
+        return {
+          temperatureC:  data.hourly.temperature_2m[idx]         ?? null,
+          humidityPct:   Math.round(data.hourly.relative_humidity_2m[idx] ?? 0),
+          cloudCoverPct: Math.round(data.hourly.cloud_cover[idx]           ?? 0),
+        }
+      } catch {
+        return null
+      }
+    }),
+
   forecast: protectedProcedure
     .input(z.object({
       latitude:  z.number().min(-90).max(90),
@@ -75,7 +147,6 @@ export const weatherRouter = router({
       const data = (await res.json()) as OpenMeteoResponse
 
       const nights: NightScore[] = []
-      const seen = new Set<string>()
 
       data.hourly.time.forEach((isoTime, i) => {
         const dt    = new Date(isoTime)
