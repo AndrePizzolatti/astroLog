@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, FolderOpen, Layers, Camera, Clock, CalendarDays, Eye, Cloud, CloudRain } from 'lucide-react'
+import { Plus, Search, FolderOpen, Layers, Camera, Clock, CalendarDays, Eye, Cloud, CloudRain, TrendingUp } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { ProjectCard }  from '@/components/projects/project-card'
 import { ProjectForm }  from '@/components/projects/project-form'
@@ -48,10 +48,14 @@ export default function DashboardPage() {
   const { data: weather } = api.weather.forecast.useQuery()
 
   // Stats computed from projects list (all projects, not filtered)
-  const allProjects = projects ?? []
-  const totalSessions   = allProjects.reduce((s, p) => s + p._count.imagingSessions, 0)
-  const totalLights     = allProjects.reduce((s, p) => s + p.totalLights, 0)
-  const totalHours      = allProjects.reduce((s, p) => s + p.totalIntegrationMinutes, 0) / 60
+  const allProjects   = projects ?? []
+  const totalSessions = allProjects.reduce((s, p) => s + p._count.imagingSessions, 0)
+  const totalLights   = allProjects.reduce((s, p) => s + p.totalLights, 0)
+  const totalHours    = allProjects.reduce((s, p) => s + p.totalIntegrationMinutes, 0) / 60
+  const thisYear      = new Date().getFullYear()
+  const hoursThisYear = allProjects
+    .filter(p => new Date(p.updatedAt).getFullYear() === thisYear)
+    .reduce((s, p) => s + p.totalIntegrationMinutes, 0) / 60
 
   const filtered = projects?.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -73,7 +77,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         <div className="card p-3 flex items-center gap-3">
           <Layers className="w-4 h-4 text-cosmos-400 shrink-0" />
           <div>
@@ -99,7 +103,14 @@ export default function DashboardPage() {
           <Clock className="w-4 h-4 text-star-400 shrink-0" />
           <div>
             <p className="text-lg font-bold mono text-white leading-none">{formatHours(totalHours)}</p>
-            <p className="text-xs text-white/40 mt-0.5">integração</p>
+            <p className="text-xs text-white/40 mt-0.5">integração total</p>
+          </div>
+        </div>
+        <div className="card p-3 flex items-center gap-3 border-aurora-400/15 bg-aurora-400/5">
+          <TrendingUp className="w-4 h-4 text-aurora-400 shrink-0" />
+          <div>
+            <p className="text-lg font-bold mono text-aurora-300 leading-none">{formatHours(hoursThisYear)}</p>
+            <p className="text-xs text-white/40 mt-0.5">em {thisYear}</p>
           </div>
         </div>
       </div>
@@ -184,11 +195,42 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(p => <ProjectCard key={p.id} project={p as any} />)}
-        </div>
-      )}
+      ) : (() => {
+        // When no status filter active, group: in-progress first (highlighted), then others
+        const showGrouped = !statusFilter && !search
+        const inProgress  = filtered.filter(p => p.status === 'IN_PROGRESS')
+        const others      = filtered.filter(p => p.status !== 'IN_PROGRESS')
+
+        if (showGrouped && inProgress.length > 0) {
+          return (
+            <div className="space-y-6">
+              <div>
+                <p className="text-xs text-white/30 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-aurora-400 inline-block" />
+                  Em andamento
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {inProgress.map(p => <ProjectCard key={p.id} project={p as any} />)}
+                </div>
+              </div>
+              {others.length > 0 && (
+                <div>
+                  <p className="text-xs text-white/20 uppercase tracking-wider mb-3">Outros projetos</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {others.map(p => <ProjectCard key={p.id} project={p as any} />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        }
+
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(p => <ProjectCard key={p.id} project={p as any} />)}
+          </div>
+        )
+      })()}
 
       <ProjectForm open={createOpen} onOpenChange={setCreateOpen} />
     </div>
