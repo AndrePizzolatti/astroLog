@@ -519,7 +519,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="input-label">Temperatura (°C)</label>
-              <input {...register('temperatureC')} type="number" step="0.5" className="input" placeholder="18" />
+              <input {...register('temperatureC')} type="number" step="0.1" className="input" placeholder="18" />
             </div>
             <div>
               <label className="input-label">Umidade (%)</label>
