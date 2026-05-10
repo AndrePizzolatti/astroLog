@@ -4,6 +4,29 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getSupabaseAdmin, STORAGE_BUCKET, buildStoragePath } from '@/lib/supabase'
 
+async function syncLightsCount(sessionId: string, projectId: string) {
+  const lightCount = await prisma.sessionFile.count({
+    where: { sessionId, fileType: 'LIGHT' as any },
+  })
+  await prisma.imagingSession.update({
+    where: { id: sessionId },
+    data: { lightsCount: lightCount },
+  })
+  const sessions = await prisma.imagingSession.findMany({
+    where: { projectId },
+    select: { lightsCount: true, exposureSeconds: true },
+  })
+  const totalLights = sessions.reduce((sum, s) => sum + (s.lightsCount ?? 0), 0)
+  const totalIntegrationMinutes = sessions.reduce(
+    (sum, s) => sum + ((s.lightsCount ?? 0) * (s.exposureSeconds ?? 0)) / 60,
+    0,
+  )
+  await prisma.imagingProject.update({
+    where: { id: projectId },
+    data: { totalLights, totalIntegrationMinutes },
+  })
+}
+
 export async function POST(req: NextRequest) {
   const auth = await getServerSession(authOptions)
   if (!auth?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -45,6 +68,10 @@ export async function POST(req: NextRequest) {
     select: { id: true, fileType: true, originalName: true },
   })
 
+  if (fileType === 'LIGHT') {
+    await syncLightsCount(sessionId, projectId)
+  }
+
   return NextResponse.json(record)
 }
 
@@ -66,6 +93,10 @@ export async function DELETE(req: NextRequest) {
     await admin.storage.from(STORAGE_BUCKET).remove([file.storagePath])
     await prisma.sessionFile.delete({ where: { id: body.fileId } })
 
+    if (file.fileType === 'LIGHT') {
+      await syncLightsCount(file.sessionId, file.session.projectId)
+    }
+
   } else if (body.sessionId && body.fileType) {
     const files = await prisma.sessionFile.findMany({
       where: {
@@ -73,12 +104,16 @@ export async function DELETE(req: NextRequest) {
         fileType:  body.fileType,
         session:   { project: { userId: auth.user.id } },
       },
-      select: { id: true, storagePath: true },
+      select: { id: true, storagePath: true, session: { select: { projectId: true } } },
     })
     if (files.length > 0) {
       const admin = getSupabaseAdmin()
       await admin.storage.from(STORAGE_BUCKET).remove(files.map(f => f.storagePath))
       await prisma.sessionFile.deleteMany({ where: { id: { in: files.map(f => f.id) } } })
+
+      if (body.fileType === 'LIGHT') {
+        await syncLightsCount(body.sessionId, files[0].session.projectId)
+      }
     }
 
   } else {

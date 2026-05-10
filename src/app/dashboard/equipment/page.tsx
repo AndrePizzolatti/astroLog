@@ -302,6 +302,7 @@ function CamerasTab() {
                     {c.fullWellCapacity && <Metric label="Full well" value={`${(c.fullWellCapacity / 1000).toFixed(0)}ke⁻`} />}
                   </div>
                 )}
+                <CameraCalibHealth cameraId={c.id} />
               </div>
             ))}
           </div>}
@@ -426,6 +427,64 @@ function AccessoriesTab() {
             ))}
           </div>}
       <AccessoryForm open={open} onOpenChange={handleClose} initial={editing ?? undefined} />
+    </div>
+  )
+}
+
+// ────────────────────────── Calibration health ────
+
+const CALIB_EXPIRY_DAYS: Record<string, number> = {
+  DARK: 180, BIAS: 365, MASTER_DARK: 180, MASTER_BIAS: 365,
+}
+const CALIB_SHORT: Record<string, string> = {
+  DARK: 'Dark', BIAS: 'Bias', MASTER_DARK: 'M.Dark', MASTER_BIAS: 'M.Bias',
+}
+
+function calibDaysLeft(frameType: string, createdAt: Date | string): number {
+  const maxDays = CALIB_EXPIRY_DAYS[frameType] ?? 180
+  const expiresAt = new Date(new Date(createdAt).getTime() + maxDays * 24 * 60 * 60 * 1000)
+  return Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+}
+
+function CameraCalibHealth({ cameraId }: { cameraId: string }) {
+  const { data } = api.calibration.list.useQuery({ cameraId, limit: 50 })
+  const frames = data?.items ?? []
+
+  if (!frames.length) return (
+    <div className="pt-2 border-t border-white/5">
+      <p className="text-[10px] text-white/20 uppercase tracking-wider">Calibração — sem frames</p>
+    </div>
+  )
+
+  // most-recent frame per type
+  const latest: Record<string, (typeof frames)[0]> = {}
+  for (const f of frames) {
+    const prev = latest[f.frameType]
+    if (!prev || new Date(f.createdAt) > new Date(prev.createdAt)) latest[f.frameType] = f
+  }
+
+  const show = (['MASTER_DARK', 'MASTER_BIAS', 'DARK', 'BIAS'] as const).filter(t => latest[t])
+
+  return (
+    <div className="pt-2 border-t border-white/5">
+      <p className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">Calibração</p>
+      <div className="flex flex-wrap gap-1.5">
+        {show.map(t => {
+          const days = calibDaysLeft(t, latest[t].createdAt)
+          const expired = days < 0
+          const soon    = days >= 0 && days < 30
+          return (
+            <span key={t} className={cn(
+              'text-[10px] font-medium px-1.5 py-0.5 rounded border',
+              expired ? 'bg-red-500/15 text-red-300 border-red-500/25' :
+              soon    ? 'bg-amber-500/15 text-amber-300 border-amber-500/25' :
+                        'bg-white/5 text-white/35 border-white/10',
+            )}>
+              {CALIB_SHORT[t]}{expired ? ' !' : soon ? ` ${days}d` : ''}
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -44,6 +44,11 @@ html, body {
 
   .input {
     @apply bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-cosmos-400 focus:border-cosmos-400/50 transition-colors duration-150 w-full;
+    color-scheme: dark;
+  }
+  .input option {
+    background-color: var(--cosmos-900);
+    color: #fff;
   }
   .input-label {
     @apply text-xs font-medium text-white/50 uppercase tracking-wider mb-1 block;
