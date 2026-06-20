@@ -92,6 +92,49 @@ export const sessionsRouter = router({
       return session
     }),
 
+  // Cria várias sessões de uma vez (import de pasta de FITS / sequência N.I.N.A.)
+  bulkCreate: protectedProcedure
+    .input(z.object({
+      projectId: z.string(),
+      setupId:   z.string().optional(),
+      sessions: z.array(z.object({
+        observedAt:      z.string().datetime(),
+        filterUsed:      z.string().optional(),
+        lightsCount:     z.number().int().min(0).default(0),
+        exposureSeconds: z.number().positive().optional(),
+        gain:            z.number().int().optional(),
+        offset:          z.number().int().optional(),
+        binning:         z.string().optional(),
+        sensorTempC:     z.number().optional(),
+        notes:           z.string().optional(),
+      })).min(1).max(500),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.imagingProject.findFirst({
+        where: { id: input.projectId, userId: ctx.session.user.id },
+      })
+      if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
+
+      if (input.setupId) {
+        const setup = await ctx.prisma.equipmentSetup.findFirst({
+          where: { id: input.setupId, userId: ctx.session.user.id },
+        })
+        if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
+      }
+
+      await ctx.prisma.imagingSession.createMany({
+        data: input.sessions.map(s => ({
+          projectId:  input.projectId,
+          setupId:    input.setupId,
+          ...s,
+          observedAt: new Date(s.observedAt),
+        })),
+      })
+
+      await recalcProjectMetrics(ctx, input.projectId)
+      return { count: input.sessions.length }
+    }),
+
   update: protectedProcedure
     .input(z.object({
       id:              z.string(),

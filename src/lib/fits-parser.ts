@@ -15,6 +15,27 @@ export interface FITSFields {
   telescope?:       string   // TELESCOP
   ra?:              string   // RA / OBJCTRA
   dec?:             string   // DEC / OBJCTDEC
+  imageType?:       FrameType // IMAGETYP / FRAME
+  // ── Equipamento (para auto-cadastro) ──────────────────────────────────────
+  focalLengthMm?:   number   // FOCALLEN
+  apertureMm?:      number   // APTDIA / APERTURE
+  pixelSizeUm?:     number   // XPIXSZ (tamanho do pixel, possivelmente já com binning aplicado)
+  naxis1?:          number   // NAXIS1 (largura do frame em px)
+  naxis2?:          number   // NAXIS2 (altura do frame em px)
+  bayerPattern?:    string   // BAYERPAT — presença indica sensor colorido (OSC)
+  focalRatio?:      number   // FOCRATIO
+}
+
+export type FrameType = 'LIGHT' | 'DARK' | 'FLAT' | 'BIAS' | 'UNKNOWN'
+
+// Normaliza o tipo de frame (IMAGETYP) — "Light Frame", "DARK", "Flat Field"…
+function normalizeImageType(raw: string): FrameType {
+  const k = raw.toLowerCase()
+  if (k.includes('light')) return 'LIGHT'
+  if (k.includes('flat'))  return 'FLAT'   // "Dark Flat" cai aqui — calibração, ignorada de qualquer forma
+  if (k.includes('bias'))  return 'BIAS'
+  if (k.includes('dark'))  return 'DARK'
+  return 'UNKNOWN'
 }
 
 // ── Filtros: normaliza variações de nome para os tokens do app ──────────────
@@ -110,6 +131,34 @@ function parseFITS(buffer: ArrayBuffer): FITSFields {
         case 'OBJCTDEC':
           if (str && !fields.dec) fields.dec = str
           break
+        case 'IMAGETYP':
+        case 'FRAME':
+          if (str) fields.imageType = normalizeImageType(str)
+          break
+        case 'FOCALLEN':
+          if (!isNaN(num) && num > 0) fields.focalLengthMm = num
+          break
+        case 'APTDIA':
+          if (!isNaN(num) && num > 0) fields.apertureMm = num
+          break
+        case 'APERTURE':
+          if (!isNaN(num) && num > 0 && fields.apertureMm === undefined) fields.apertureMm = num
+          break
+        case 'XPIXSZ':
+          if (!isNaN(num) && num > 0) fields.pixelSizeUm = num
+          break
+        case 'NAXIS1':
+          if (!isNaN(num) && num > 0) fields.naxis1 = Math.round(num)
+          break
+        case 'NAXIS2':
+          if (!isNaN(num) && num > 0) fields.naxis2 = Math.round(num)
+          break
+        case 'BAYERPAT':
+          if (str) fields.bayerPattern = str
+          break
+        case 'FOCRATIO':
+          if (!isNaN(num) && num > 0) fields.focalRatio = num
+          break
       }
     }
   }
@@ -198,6 +247,15 @@ function applyKV(name: string, value: string, fields: FITSFields) {
     case 'TELESCOP': if (str) fields.telescope = str; break
     case 'RA':       case 'OBJCTRA':   if (str && !fields.ra)  fields.ra  = str; break
     case 'DEC':      case 'OBJCTDEC':  if (str && !fields.dec) fields.dec = str; break
+    case 'IMAGETYP': case 'FRAME':     if (str) fields.imageType = normalizeImageType(str); break
+    case 'FOCALLEN': if (!isNaN(num) && num > 0) fields.focalLengthMm = num; break
+    case 'APTDIA':   if (!isNaN(num) && num > 0) fields.apertureMm = num; break
+    case 'APERTURE': if (!isNaN(num) && num > 0 && fields.apertureMm === undefined) fields.apertureMm = num; break
+    case 'XPIXSZ':   if (!isNaN(num) && num > 0) fields.pixelSizeUm = num; break
+    case 'NAXIS1':   if (!isNaN(num) && num > 0) fields.naxis1 = Math.round(num); break
+    case 'NAXIS2':   if (!isNaN(num) && num > 0) fields.naxis2 = Math.round(num); break
+    case 'BAYERPAT': if (str) fields.bayerPattern = str; break
+    case 'FOCRATIO': if (!isNaN(num) && num > 0) fields.focalRatio = num; break
   }
 }
 
@@ -229,4 +287,111 @@ export async function parseImageHeader(file: File): Promise<FITSFields> {
   if (magic.startsWith('SIMPLE')) return parseFITS(buffer)
 
   return {}
+}
+
+// ── Fallback por nome de arquivo (opção "Image File Pattern" do N.I.N.A.) ─────
+// Quando o header não traz metadados (ou o arquivo não é FITS/XISF), tenta extrair
+// filtro / exposição / gain / temperatura / tipo do próprio nome do arquivo.
+// Ex.: "NGC3372_Ha_300s_Gain100_-10C.fits", "M42_Light_120.00s_G100_-10C_001.fit"
+
+export function parseFilename(name: string): FITSFields {
+  const base   = name.replace(/\.[^.]+$/, '')               // remove extensão
+  const fields: FITSFields = {}
+
+  // Exposição: "300s", "120.00s", "300sec", "_300_" (último recurso)
+  const exp = base.match(/(\d+(?:[.,]\d+)?)\s*s(?:ec)?\b/i)
+  if (exp) {
+    const v = parseFloat(exp[1].replace(',', '.'))
+    if (!isNaN(v) && v > 0) fields.exposureSeconds = v
+  }
+
+  // Gain: "Gain100", "G100", "gain_100"
+  const gain = base.match(/\bgain[_-]?(\d+)\b/i) ?? base.match(/\bG(\d{2,4})\b/)
+  if (gain) fields.gain = parseInt(gain[1], 10)
+
+  // Offset: "Offset50", "O50"
+  const off = base.match(/\boffset[_-]?(\d+)\b/i)
+  if (off) fields.offset = parseInt(off[1], 10)
+
+  // Temperatura: "-10C", "-10.0C", "_10C" (assume negativa só se vier o sinal)
+  const temp = base.match(/(-?\d+(?:[.,]\d+)?)\s*C\b/)
+  if (temp) {
+    const v = parseFloat(temp[1].replace(',', '.'))
+    if (!isNaN(v) && v >= -50 && v <= 50) fields.sensorTempC = Math.round(v * 10) / 10
+  }
+
+  // Binning: "bin1", "1x1", "2×2"
+  const bin = base.match(/\bbin[_-]?(\d)\b/i) ?? base.match(/\b(\d)\s*[x×]\s*\1\b/i)
+  if (bin) { const b = parseInt(bin[1], 10); if (b >= 1 && b <= 4) fields.binning = `${b}×${b}` }
+
+  // Tipo de frame por palavra no nome
+  if (/\b(light)\b/i.test(base))      fields.imageType = 'LIGHT'
+  else if (/\b(flat)\b/i.test(base))  fields.imageType = 'FLAT'
+  else if (/\b(bias)\b/i.test(base))  fields.imageType = 'BIAS'
+  else if (/\b(dark)\b/i.test(base))  fields.imageType = 'DARK'
+
+  // Filtro: procura tokens conhecidos delimitados por _ - ou espaço
+  for (const token of base.split(/[\s_\-.]+/)) {
+    const norm = normalizeFilter(token)
+    if (norm && /^(L|R|G|B|Ha|OIII|SII)$/.test(norm)) { fields.filterUsed = norm; break }
+  }
+
+  return fields
+}
+
+// ── Extração de equipamento (para auto-cadastro) ─────────────────────────────
+// Deriva telescópio e câmera a partir dos metadados de um frame. Os valores são
+// um ponto de partida — o usuário revisa antes de salvar.
+
+export interface DetectedTelescope {
+  name:           string
+  focalLengthMm?: number
+  apertureMm?:    number
+}
+
+export interface DetectedCamera {
+  name:           string
+  pixelSizeUm?:   number
+  sensorWidthPx?: number
+  sensorHeightPx?: number
+  colorType:      'COLOR' | 'MONO'
+}
+
+function binFactor(binning?: string): number {
+  if (!binning) return 1
+  const m = binning.match(/^(\d)/)
+  return m ? Math.max(1, parseInt(m[1], 10)) : 1
+}
+
+export function extractEquipment(f: FITSFields): { telescope?: DetectedTelescope; camera?: DetectedCamera } {
+  const bin = binFactor(f.binning)
+  const result: { telescope?: DetectedTelescope; camera?: DetectedCamera } = {}
+
+  // ── Telescópio ──
+  if (f.focalLengthMm) {
+    // Abertura: direta, ou derivada da razão focal quando ausente
+    const aperture = f.apertureMm ?? (f.focalRatio ? Math.round(f.focalLengthMm / f.focalRatio) : undefined)
+    result.telescope = {
+      name:          f.telescope?.trim() || `${Math.round(f.focalLengthMm)}mm`,
+      focalLengthMm: f.focalLengthMm,
+      apertureMm:    aperture,
+    }
+  }
+
+  // ── Câmera ──
+  if (f.camera || f.pixelSizeUm || (f.naxis1 && f.naxis2)) {
+    // Recupera dimensões e pixel físicos quando o frame foi capturado com binning
+    const width  = f.naxis1 ? f.naxis1 * bin : undefined
+    const height = f.naxis2 ? f.naxis2 * bin : undefined
+    const pixel  = f.pixelSizeUm ? (bin > 1 ? Math.round((f.pixelSizeUm / bin) * 100) / 100 : f.pixelSizeUm) : undefined
+    result.camera = {
+      name:           f.camera?.trim() || 'Câmera',
+      pixelSizeUm:    pixel,
+      sensorWidthPx:  width,
+      sensorHeightPx: height,
+      colorType:      f.bayerPattern ? 'COLOR' : 'MONO',
+    }
+  }
+
+  return result
 }
