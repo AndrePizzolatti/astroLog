@@ -29,6 +29,40 @@ export const projectsRouter = router({
       }),
     ),
 
+  // Integração agregada por ano a partir das SESSÕES (observedAt),
+  // não de updatedAt do projeto. Soma lightsCount × exposureSeconds das
+  // sessões cujo observedAt cai no ano pedido.
+  statsByYear: protectedProcedure
+    .input(z.object({
+      year: z.number().int().min(1970).max(3000).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const year  = input?.year ?? new Date().getFullYear()
+      const start = new Date(year, 0, 1)
+      const end   = new Date(year + 1, 0, 1)
+
+      const sessions = await ctx.prisma.imagingSession.findMany({
+        where: {
+          project:    { userId: ctx.session.user.id },
+          observedAt: { gte: start, lt: end },
+        },
+        select: { lightsCount: true, exposureSeconds: true },
+      })
+
+      const integrationSeconds = sessions.reduce(
+        (sum, s) => sum + (s.lightsCount ?? 0) * (s.exposureSeconds ?? 0),
+        0,
+      )
+
+      return {
+        year,
+        sessionCount:       sessions.length,
+        totalLights:        sessions.reduce((sum, s) => sum + (s.lightsCount ?? 0), 0),
+        integrationMinutes: integrationSeconds / 60,
+        integrationHours:   integrationSeconds / 3600,
+      }
+    }),
+
   byId: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -172,8 +206,9 @@ export const projectsRouter = router({
     .input(z.object({
       projectId:   z.string(),
       fileType:    z.enum(['STACK','MASTER_DARK','MASTER_FLAT','FINAL_JPEG','FINAL_TIFF','OTHER']),
-      storagePath: z.string(),
-      label:       z.string(),
+      provider:    z.enum(['SUPABASE','DRIVE','LOCAL']).default('SUPABASE'),
+      storagePath: z.string().min(1),   // chave Supabase, URL do Drive, ou caminho local
+      label:       z.string().min(1),
       isFinal:     z.boolean().default(false),
       sizeBytes:   z.number().int().positive().optional(),
     }))
@@ -185,5 +220,19 @@ export const projectsRouter = router({
           sizeBytes: input.sizeBytes ? BigInt(input.sizeBytes) : null,
         },
       })
+    }),
+
+  deleteFile: protectedProcedure
+    .input(z.object({ fileId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const file = await ctx.prisma.projectFile.findUnique({
+        where:   { id: input.fileId },
+        include: { project: { select: { userId: true } } },
+      })
+      if (!file || file.project.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: 'NOT_FOUND' })
+      }
+      await ctx.prisma.projectFile.delete({ where: { id: input.fileId } })
+      return { provider: file.provider, storagePath: file.storagePath }
     }),
 })

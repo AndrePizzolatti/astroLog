@@ -271,14 +271,15 @@ model ImagingSession {
 }
 
 model SessionFile {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   sessionId    String
   fileType     FileType
-  storagePath  String
+  provider     StorageProvider @default(SUPABASE)
+  storagePath  String          // chave Supabase, URL do Drive, ou caminho local — interpretado conforme provider
   originalName String
-  sizeBytes    BigInt
+  sizeBytes    BigInt?
   exifData     Json?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime        @default(now())
 
   session ImagingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -289,7 +290,8 @@ model ProjectFile {
   id          String          @id @default(cuid())
   projectId   String
   fileType    ProjectFileType
-  storagePath String
+  provider    StorageProvider @default(SUPABASE)
+  storagePath String          // chave Supabase, URL do Drive, ou caminho local — interpretado conforme provider
   label       String
   isFinal     Boolean         @default(false)
   sizeBytes   BigInt?
@@ -392,6 +394,12 @@ model Follow {
 // ──────────────────────────────────────────
 // ENUMS
 // ──────────────────────────────────────────
+
+enum StorageProvider {
+  SUPABASE   // upload no bucket do app
+  DRIVE      // referência a um arquivo/pasta do Google Drive (URL)
+  LOCAL      // caminho num disco local do usuário
+}
 
 enum ColorType {
   COLOR
