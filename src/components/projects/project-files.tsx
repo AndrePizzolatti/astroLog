@@ -8,6 +8,7 @@ import { api } from '@/lib/trpc'
 import { cn, formatFileSize } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
+import { DrivePicker } from '@/components/projects/drive-picker'
 
 const FILE_TYPES = [
   { value: 'FINAL_JPEG',  label: 'Resultado (JPEG)' },
@@ -38,6 +39,7 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
   const { toast } = useToast()
   const utils = api.useUtils()
   const [addOpen, setAddOpen] = useState(false)
+  const [driveOpen, setDriveOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const del = api.projects.deleteFile.useMutation({
@@ -59,9 +61,14 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
         <h2 className="text-base font-semibold text-white flex items-center gap-2">
           <FolderOpen className="w-4 h-4 text-white/40" /> Arquivos & Links
         </h2>
-        <button className="btn-secondary flex items-center gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
-          <Plus className="w-3.5 h-3.5" /> Adicionar link
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary flex items-center gap-1.5 text-xs" onClick={() => setDriveOpen(true)}>
+            <Cloud className="w-3.5 h-3.5" /> Buscar no Drive
+          </button>
+          <button className="btn-secondary flex items-center gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
+            <Plus className="w-3.5 h-3.5" /> Adicionar link
+          </button>
+        </div>
       </div>
 
       {!files.length ? (
@@ -108,6 +115,7 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
       )}
 
       <AddLinkModal projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
+      <DrivePicker projectId={projectId} open={driveOpen} onOpenChange={setDriveOpen} />
     </div>
   )
 }

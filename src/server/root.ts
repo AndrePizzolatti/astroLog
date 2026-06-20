@@ -7,6 +7,7 @@ import { userRouter }                                          from './routers/u
 import { alertsRouter }                                        from './routers/alerts'
 import { calibrationRouter }                                   from './routers/calibration'
 import { agentRouter }                                         from './routers/agent'
+import { driveRouter }                                         from './routers/drive'
 
 export const appRouter = router({
   user:        userRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   alerts:      alertsRouter,
   calibration: calibrationRouter,
   agent:       agentRouter,
+  drive:       driveRouter,
 })
 
 export type AppRouter = typeof appRouter
