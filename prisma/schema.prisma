@@ -74,6 +74,7 @@ model User {
   followers          Follow[]            @relation("following")
   following          Follow[]            @relation("follower")
   calibrationFrames  CalibrationFrame[]
+  agentTokens        AgentToken[]
 }
 
 // ──────────────────────────────────────────
@@ -389,6 +390,23 @@ model Follow {
   following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
+}
+
+// ──────────────────────────────────────────
+// AGENTE LOCAL (token de API para o agente Siril / watcher)
+// ──────────────────────────────────────────
+
+model AgentToken {
+  id         String    @id @default(cuid())
+  userId     String
+  label      String
+  token      String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ──────────────────────────────────────────

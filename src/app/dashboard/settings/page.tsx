@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
 import { CitySearch } from '@/components/ui/city-search'
+import { AgentTokens } from '@/components/settings/agent-tokens'
 import { MapPin, User, LocateFixed } from 'lucide-react'
 
 // Leaflet só funciona no browser — importação dinâmica obrigatória
@@ -256,6 +257,9 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
+
+      {/* Agente local — gestão de tokens (fora do form de perfil) */}
+      <AgentTokens />
 
       <div className="card p-4">
         <p className="text-xs text-white/30 text-center">

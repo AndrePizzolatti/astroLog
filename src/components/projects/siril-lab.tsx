@@ -143,14 +143,26 @@ export function SirilLab({ open, onOpenChange, target, isOSCDefault, filters }: 
             <ChevronDown className={cn('w-4 h-4 text-white/30 transition-transform', agentOpen && 'rotate-180')} />
           </button>
           {agentOpen && (
-            <div className="px-3 pb-3 text-[11px] text-white/45 leading-relaxed space-y-1.5">
+            <div className="px-3 pb-3 text-[11px] text-white/45 leading-relaxed space-y-2">
               <p>
-                O app web não roda o Siril direto (é um binário nativo). A versão totalmente automática é um
-                <strong className="text-white/70"> agente local</strong>: um pequeno programa que você instala no PC do setup,
-                que recebe o script daqui, roda o <code className="text-white/60">siril-cli</code> e faz a limpeza sozinho ao terminar —
-                reportando o resultado de volta pro AstroLog.
+                O app web não roda o Siril direto (é binário nativo). O <strong className="text-white/70">agente local</strong> é
+                um programinha Node que roda o <code className="text-white/60">siril-cli</code> na sua máquina, faz a limpeza
+                segura e reporta o resultado de volta — registrando o final como link Local no projeto.
               </p>
-              <p className="text-white/30">Em desenvolvimento. Por enquanto, baixe o .ssf e o script de limpeza acima e rode localmente.</p>
+              <ol className="list-decimal list-inside space-y-1 text-white/50">
+                <li>Gere um token em <a href="/dashboard/settings" className="text-aurora-400 hover:underline">Configurações → Agente local</a>.</li>
+                <li>Baixe o agente e o README ali e crie o <code className="text-white/60">siril-agent.config.json</code>.</li>
+                <li>Salve o <code className="text-white/60">.ssf</code> acima na pasta do projeto e rode:</li>
+              </ol>
+              <pre className="text-[10px] mono text-white/60 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre">node siril-agent.mjs --project &lt;id&gt; --folder &quot;D:/Astro/{fileBase}&quot; --script &quot;{fileBase}.ssf&quot;</pre>
+              <div className="flex gap-2">
+                <a href="/agent/siril-agent.mjs" download className="btn-ghost flex items-center gap-1.5 text-[11px] text-white/50">
+                  <Download className="w-3 h-3" /> Baixar agente
+                </a>
+                <a href="/dashboard/settings" className="btn-ghost flex items-center gap-1.5 text-[11px] text-aurora-400">
+                  Gerar token
+                </a>
+              </div>
             </div>
           )}
         </div>
