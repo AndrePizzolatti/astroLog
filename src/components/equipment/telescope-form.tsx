@@ -29,13 +29,19 @@ export type TelescopeInitial = {
   weightKg?: number | null; notes?: string | null
 }
 
+export type TelescopePrefill = {
+  name?: string; brand?: string; model?: string; opticalDesign?: string
+  focalLengthMm?: number; apertureMm?: number
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   initial?: TelescopeInitial
+  prefill?: TelescopePrefill   // cria já preenchido (sem id) — ex.: detectado do header FITS
 }
 
-export function TelescopeForm({ open, onOpenChange, initial }: Props) {
+export function TelescopeForm({ open, onOpenChange, initial, prefill }: Props) {
   const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
@@ -60,6 +66,13 @@ export function TelescopeForm({ open, onOpenChange, initial }: Props) {
         obstruction:   initial.obstruction ?? '',
         weightKg:      initial.weightKg ?? '',
         notes:         initial.notes ?? '',
+      } : prefill ? {
+        name:          prefill.name ?? '',
+        brand:         prefill.brand ?? '',
+        model:         prefill.model ?? '',
+        opticalDesign: prefill.opticalDesign ?? '',
+        ...(prefill.focalLengthMm != null && { focalLengthMm: prefill.focalLengthMm }),
+        ...(prefill.apertureMm    != null && { apertureMm:    prefill.apertureMm }),
       } : {})
     }
   }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps

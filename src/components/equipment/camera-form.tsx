@@ -36,13 +36,20 @@ export type CameraInitial = {
   notes?: string | null
 }
 
+export type CameraPrefill = {
+  name?: string; brand?: string; model?: string
+  colorType?: 'COLOR' | 'MONO' | 'DSLR'; sensorName?: string
+  pixelSizeUm?: number; sensorWidthPx?: number; sensorHeightPx?: number; cooled?: boolean
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   initial?: CameraInitial
+  prefill?: CameraPrefill   // cria já preenchido (sem id) — ex.: detectado do header FITS
 }
 
-export function CameraForm({ open, onOpenChange, initial }: Props) {
+export function CameraForm({ open, onOpenChange, initial, prefill }: Props) {
   const isEdit = !!initial
   const { toast } = useToast()
   const utils = api.useUtils()
@@ -74,6 +81,16 @@ export function CameraForm({ open, onOpenChange, initial }: Props) {
         cooled:           initial.cooled,
         weightKg:         initial.weightKg ?? '',
         notes:            initial.notes ?? '',
+      } : prefill ? {
+        name:           prefill.name ?? '',
+        brand:          prefill.brand ?? '',
+        model:          prefill.model ?? '',
+        colorType:      prefill.colorType ?? 'COLOR',
+        sensorName:     prefill.sensorName ?? '',
+        cooled:         prefill.cooled ?? false,
+        ...(prefill.pixelSizeUm    != null && { pixelSizeUm:    prefill.pixelSizeUm }),
+        ...(prefill.sensorWidthPx  != null && { sensorWidthPx:  prefill.sensorWidthPx }),
+        ...(prefill.sensorHeightPx != null && { sensorHeightPx: prefill.sensorHeightPx }),
       } : { colorType: 'COLOR', cooled: false })
     }
   }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
