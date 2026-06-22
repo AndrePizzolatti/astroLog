@@ -4,9 +4,11 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { Search, Loader2 } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
+import { POPULAR_TARGETS } from '@/lib/popular-targets'
 
 const schema = z.object({
   name:         z.string().min(2, 'Nome obrigatório'),
@@ -49,10 +51,27 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
   const utils = api.useUtils()
   const { data: setups } = api.setups.list.useQuery()
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, setValue, getValues, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { status: 'IN_PROGRESS', visibility: 'PRIVATE' },
   })
+
+  const resolve = api.catalog.resolve.useMutation()
+
+  async function resolveTarget() {
+    const name = (getValues('targetObject') || '').trim()
+    if (!name) { toast('Digite o alvo primeiro', 'error'); return }
+    try {
+      const r = await resolve.mutateAsync({ name })
+      if (!r) { toast(`Não encontrei "${name}" no catálogo`, 'error'); return }
+      setValue('raHours', r.raHours as any, { shouldDirty: true })
+      setValue('decDegrees', r.decDegrees as any, { shouldDirty: true })
+      if (r.type && !(getValues('targetType') || '').trim()) setValue('targetType', r.type, { shouldDirty: true })
+      toast('Coordenadas preenchidas via SIMBAD')
+    } catch {
+      toast('Falha ao consultar o catálogo', 'error')
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -106,7 +125,18 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
           </div>
           <div className="col-span-2">
             <label className="input-label">Objeto-alvo *</label>
-            <input {...register('targetObject')} className="input" placeholder="M42, NGC 7293, IC 5070…" />
+            <div className="flex gap-2">
+              <input {...register('targetObject')} list="popular-targets" className="input flex-1" placeholder="M42, NGC 7293, IC 5070…" />
+              <button type="button" onClick={resolveTarget} disabled={resolve.isPending}
+                className="btn-secondary flex items-center gap-1.5 shrink-0" title="Buscar coordenadas (SIMBAD)">
+                {resolve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                Resolver
+              </button>
+            </div>
+            <datalist id="popular-targets">
+              {POPULAR_TARGETS.map(t => <option key={t} value={t} />)}
+            </datalist>
+            <p className="text-[11px] text-white/30 mt-1">Digite o nome e clique em Resolver pra preencher tipo, AR e Dec automaticamente.</p>
             {errors.targetObject && <p className="input-error">{errors.targetObject.message}</p>}
           </div>
           <div>
