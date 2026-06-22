@@ -66,6 +66,7 @@ export default function AlertsPage() {
 
   const { data: subscriptions, isLoading } = api.alerts.list.useQuery()
   const { data: events, isLoading: eventsLoading } = api.alerts.upcoming.useQuery()
+  const { data: apod } = api.catalog.apod.useQuery(undefined, { staleTime: 6 * 60 * 60 * 1000 })
 
   const upsert = api.alerts.upsert.useMutation({
     onSuccess: () => { utils.alerts.list.invalidate(); setPending(null) },
@@ -100,6 +101,30 @@ export default function AlertsPage() {
           <p className="page-subtitle">Próximos eventos do céu e suas inscrições</p>
         </div>
       </div>
+
+      {/* APOD — imagem astronômica do dia */}
+      {apod && (
+        <div className="card overflow-hidden mb-6">
+          <div className="sm:flex">
+            {apod.mediaType === 'image' && apod.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={apod.url} alt={apod.title} loading="lazy" className="w-full sm:w-56 h-44 object-cover shrink-0" />
+            ) : (
+              <a href={apod.url} target="_blank" rel="noopener noreferrer"
+                className="w-full sm:w-56 h-44 shrink-0 bg-cosmos-900 flex items-center justify-center text-xs text-cosmos-300">
+                ▶ ver vídeo
+              </a>
+            )}
+            <div className="p-4 min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-cosmos-400 mb-1">APOD · {apod.date}</p>
+              <h2 className="text-sm font-semibold text-white">{apod.title}</h2>
+              <p className="text-[11px] text-white/40 mt-1 line-clamp-3">{apod.explanation}</p>
+              <a href={apod.hdurl || apod.url} target="_blank" rel="noopener noreferrer"
+                className="text-[11px] text-aurora-400 hover:underline mt-2 inline-block">Ver em alta resolução →</a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Próximos eventos */}
       <div className="card p-5 mb-6">

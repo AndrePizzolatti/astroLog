@@ -16,6 +16,27 @@ function friendlyType(code?: string): string | null {
 }
 
 export const catalogRouter = router({
+  // Imagem astronômica do dia (NASA APOD).
+  apod: protectedProcedure.query(async () => {
+    try {
+      const key = process.env.NASA_API_KEY || 'DEMO_KEY'
+      const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${key}`)
+      if (!res.ok) return null
+      const d: any = await res.json()
+      return {
+        title:       d.title ?? '',
+        date:        d.date ?? '',
+        explanation: d.explanation ?? '',
+        url:         d.url ?? '',
+        hdurl:       d.hdurl ?? null,
+        mediaType:   d.media_type ?? 'image',
+        copyright:   d.copyright ?? null,
+      }
+    } catch {
+      return null
+    }
+  }),
+
   // Resolve um nome de objeto (M/NGC/IC/nome comum) → AR/Dec + tipo, via Sésame (CDS/SIMBAD).
   resolve: protectedProcedure
     .input(z.object({ name: z.string().min(1).max(100) }))
