@@ -128,6 +128,36 @@ function oppositionOccurrences(from: Date, to: Date): AstroEvent[] {
   return out
 }
 
+// ── Máxima elongação dos planetas internos (melhor visibilidade — análogo à oposição) ──
+const INNER: { body: Astronomy.Body; name: string }[] = [
+  { body: Astronomy.Body.Mercury, name: 'Mercúrio' },
+  { body: Astronomy.Body.Venus,   name: 'Vênus' },
+]
+
+function elongationOccurrences(from: Date, to: Date): AstroEvent[] {
+  const out: AstroEvent[] = []
+  for (const p of INNER) {
+    try {
+      let e = Astronomy.SearchMaxElongation(p.body, from)
+      for (let i = 0; i < 8; i++) {
+        const d = e.time.date
+        if (d > to) break
+        if (d >= from) {
+          const quando = e.visibility === 'morning' ? 'matutina' : 'vespertina'
+          out.push({
+            type: 'PLANET_OPPOSITION',   // mesmo tratamento/sinalização da oposição
+            name: `${p.name} — máxima elongação ${quando}`,
+            date: iso(d),
+            note: `${e.elongation.toFixed(0)}° do Sol — melhor visibilidade`,
+          })
+        }
+        e = Astronomy.SearchMaxElongation(p.body, new Date(d.getTime() + 10 * 86_400_000))
+      }
+    } catch { /* ignore */ }
+  }
+  return out
+}
+
 // Eventos dos próximos `days` dias, ordenados por data.
 export function upcomingEvents(from: Date, days: number): AstroEvent[] {
   const start = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
@@ -137,5 +167,6 @@ export function upcomingEvents(from: Date, days: number): AstroEvent[] {
     ...moonOccurrences(start, end),
     ...eclipseOccurrences(start, end),
     ...oppositionOccurrences(start, end),
+    ...elongationOccurrences(start, end),
   ].sort((a, b) => a.date.localeCompare(b.date))
 }
