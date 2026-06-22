@@ -312,15 +312,16 @@ model CalibrationFrame {
   userId          String
   cameraId        String
   frameType       CalibrationType
+  provider        StorageProvider @default(SUPABASE)
   label           String
   exposureSeconds Float?
   gain            Int
   offset          Int?
   binning         String?
   sensorTempC     Float?
-  storagePath     String
+  storagePath     String          // chave Supabase, URL do Drive, ou caminho local
   originalName    String
-  sizeBytes       BigInt
+  sizeBytes       BigInt?
   frameCount      Int             @default(1)
   notes           String?         @db.Text
   createdAt       DateTime        @default(now())

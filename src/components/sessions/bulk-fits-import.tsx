@@ -184,7 +184,8 @@ export function BulkFITSImport({ projectId, open, onOpenChange }: Props) {
       })
       utils.sessions.list.invalidate({ projectId })
       utils.projects.byId.invalidate({ id: projectId })
-      toast(`${res.count} sessão${res.count !== 1 ? 'ões' : ''} importada${res.count !== 1 ? 's' : ''}!`)
+      const calib = res.autoLinked > 0 ? ` · ${res.autoLinked} calibração(ões) vinculada(s) da biblioteca` : ''
+      toast(`${res.count} sessão${res.count !== 1 ? 'ões' : ''} importada${res.count !== 1 ? 's' : ''}!${calib}`)
       resetAll()
       onOpenChange(false)
     } catch (e: any) {

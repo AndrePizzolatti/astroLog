@@ -5,6 +5,43 @@ import { getSupabaseAdmin, STORAGE_BUCKET } from '@/lib/supabase'
 
 const CalibTypeEnum = z.enum(['DARK', 'BIAS', 'MASTER_DARK', 'MASTER_BIAS'])
 
+// Validade dos frames de calibração (dias). Espelha a regra da página da Biblioteca.
+const EXPIRY_DAYS: Record<string, number> = { DARK: 180, BIAS: 365, MASTER_DARK: 180, MASTER_BIAS: 365 }
+function isExpired(frameType: string, createdAt: Date): boolean {
+  const days = EXPIRY_DAYS[frameType] ?? 180
+  return createdAt.getTime() + days * 86_400_000 < Date.now()
+}
+
+// Acha o melhor dark e bias compatíveis e NÃO vencidos na biblioteca, para uma
+// sessão. Usado no auto-link da importação. Retorna os ids a vincular.
+export async function autoMatchCalibration(
+  prisma: any,
+  userId: string,
+  p: { cameraId: string; gain?: number | null; exposureSeconds?: number | null; sensorTempC?: number | null },
+): Promise<string[]> {
+  if (p.gain == null) return []
+  const frames = await prisma.calibrationFrame.findMany({
+    where:   { userId, cameraId: p.cameraId, gain: p.gain },
+    orderBy: { createdAt: 'desc' },
+  })
+  const tempOk = (f: any) =>
+    p.sensorTempC == null || f.sensorTempC == null || Math.abs(f.sensorTempC - p.sensorTempC) <= 2
+
+  const dark = frames.find((f: any) =>
+    (f.frameType === 'MASTER_DARK' || f.frameType === 'DARK') &&
+    !isExpired(f.frameType, f.createdAt) && tempOk(f) &&
+    (p.exposureSeconds == null || f.exposureSeconds == null || Math.abs(f.exposureSeconds - p.exposureSeconds) <= 0.01))
+
+  const bias = frames.find((f: any) =>
+    (f.frameType === 'MASTER_BIAS' || f.frameType === 'BIAS') &&
+    !isExpired(f.frameType, f.createdAt) && tempOk(f))
+
+  const out: string[] = []
+  if (dark) out.push(dark.id)
+  if (bias) out.push(bias.id)
+  return out
+}
+
 export const calibrationRouter = router({
   list: protectedProcedure
     .input(z.object({
@@ -62,6 +99,34 @@ export const calibrationRouter = router({
       })
     }),
 
+  // Adiciona um frame por LINK (Drive) ou caminho LOCAL — sem upload (Supabase cheio).
+  addLink: protectedProcedure
+    .input(z.object({
+      cameraId:        z.string(),
+      frameType:       CalibTypeEnum,
+      provider:        z.enum(['DRIVE', 'LOCAL']),
+      storagePath:     z.string().min(1),
+      label:           z.string().min(1).max(100),
+      exposureSeconds: z.number().positive().optional(),
+      gain:            z.number().int(),
+      offset:          z.number().int().optional(),
+      binning:         z.string().optional(),
+      sensorTempC:     z.number().optional(),
+      frameCount:      z.number().int().min(1).default(1),
+      notes:           z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const camera = await ctx.prisma.camera.findFirst({
+        where: { id: input.cameraId, userId: ctx.session.user.id },
+      })
+      if (!camera) throw new TRPCError({ code: 'NOT_FOUND', message: 'Camera não encontrada' })
+
+      return ctx.prisma.calibrationFrame.create({
+        data: { ...input, userId: ctx.session.user.id, originalName: input.label },
+        include: { camera: { select: { id: true, name: true } } },
+      })
+    }),
+
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -70,8 +135,11 @@ export const calibrationRouter = router({
       })
       if (!frame) throw new TRPCError({ code: 'NOT_FOUND' })
 
-      const admin = getSupabaseAdmin()
-      await admin.storage.from(STORAGE_BUCKET).remove([frame.storagePath])
+      // Só remove do bucket se de fato vive no Supabase; links Drive/Local não têm arquivo nosso
+      if (frame.provider === 'SUPABASE') {
+        const admin = getSupabaseAdmin()
+        await admin.storage.from(STORAGE_BUCKET).remove([frame.storagePath])
+      }
       await ctx.prisma.calibrationFrame.delete({ where: { id: input.id } })
       return { success: true }
     }),

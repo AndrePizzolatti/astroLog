@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
+import { autoMatchCalibration } from './calibration'
 
 async function assertSessionOwnership(ctx: any, sessionId: string) {
   const session = await ctx.prisma.imagingSession.findFirst({
@@ -115,24 +116,38 @@ export const sessionsRouter = router({
       })
       if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
 
+      let cameraId: string | undefined
       if (input.setupId) {
         const setup = await ctx.prisma.equipmentSetup.findFirst({
-          where: { id: input.setupId, userId: ctx.session.user.id },
+          where:  { id: input.setupId, userId: ctx.session.user.id },
+          select: { id: true, cameraId: true },
         })
         if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
+        cameraId = setup.cameraId
       }
 
-      await ctx.prisma.imagingSession.createMany({
-        data: input.sessions.map(s => ({
-          projectId:  input.projectId,
-          setupId:    input.setupId,
-          ...s,
-          observedAt: new Date(s.observedAt),
-        })),
-      })
+      // Cria individualmente (precisamos dos ids para o auto-link da calibração)
+      let autoLinked = 0
+      for (const s of input.sessions) {
+        const created = await ctx.prisma.imagingSession.create({
+          data:   { projectId: input.projectId, setupId: input.setupId, ...s, observedAt: new Date(s.observedAt) },
+          select: { id: true },
+        })
+        if (cameraId) {
+          const matches = await autoMatchCalibration(ctx.prisma, ctx.session.user.id, {
+            cameraId, gain: s.gain, exposureSeconds: s.exposureSeconds, sensorTempC: s.sensorTempC,
+          })
+          for (const cfId of matches) {
+            await ctx.prisma.calibrationFrameUsage.create({
+              data: { sessionId: created.id, calibrationFrameId: cfId },
+            })
+            autoLinked++
+          }
+        }
+      }
 
       await recalcProjectMetrics(ctx, input.projectId)
-      return { count: input.sessions.length }
+      return { count: input.sessions.length, autoLinked }
     }),
 
   update: protectedProcedure

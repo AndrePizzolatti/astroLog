@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, Upload, Loader2, Library } from 'lucide-react'
+import { Plus, Trash2, Upload, Loader2, Library, Cloud, HardDrive } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn, formatFileSize } from '@/lib/utils'
 import { Modal } from '@/components/ui/modal'
@@ -137,8 +137,19 @@ function CalibCard({ frame, onDelete }: { frame: any; onDelete: () => void }) {
 
       <div className="flex items-center justify-between text-xs text-white/25">
         <span>{frame.frameCount} frame{frame.frameCount !== 1 ? 's' : ''}</span>
-        <span>{formatFileSize(frame.sizeBytes)}</span>
+        {frame.sizeBytes != null && <span>{formatFileSize(frame.sizeBytes)}</span>}
       </div>
+
+      {frame.provider === 'DRIVE' ? (
+        <a href={frame.storagePath} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-[11px] text-aurora-400/80 hover:text-aurora-400 min-w-0">
+          <Cloud className="w-3 h-3 shrink-0" /> <span className="truncate">Abrir no Drive</span>
+        </a>
+      ) : frame.provider === 'LOCAL' ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-white/30 min-w-0">
+          <HardDrive className="w-3 h-3 shrink-0 text-amber-300/70" /> <span className="mono truncate">{frame.storagePath}</span>
+        </p>
+      ) : null}
 
       {frame.notes && <p className="text-xs text-white/30 italic">{frame.notes}</p>}
     </div>
@@ -156,6 +167,8 @@ function UploadModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
 
   const [uploading, setUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [source, setSource] = useState<'DRIVE' | 'LOCAL' | 'SUPABASE'>('DRIVE')
+  const [reference, setReference] = useState('')
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<UploadForm>({
     resolver: zodResolver(uploadSchema),
@@ -169,20 +182,28 @@ function UploadModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
   const wCount  = watch('frameCount')
   const autoLabel = buildAutoLabel(wType, wGain, wExp, wTemp, wCount)
 
-  const upload = api.calibration.upload.useMutation({
-    onSuccess: () => {
-      utils.calibration.list.invalidate()
-      toast('Frame adicionado à biblioteca!')
-      reset()
-      setSelectedFile(null)
-      onOpenChange(false)
-    },
-    onError: (e) => toast(e.message, 'error'),
-  })
+  function done() {
+    utils.calibration.list.invalidate()
+    toast('Frame adicionado à biblioteca!')
+    reset(); setSelectedFile(null); setReference(''); onOpenChange(false)
+  }
+
+  const upload  = api.calibration.upload.useMutation({ onSuccess: done, onError: e => toast(e.message, 'error') })
+  const addLink = api.calibration.addLink.useMutation({ onSuccess: done, onError: e => toast(e.message, 'error') })
 
   async function onSubmit(data: UploadForm) {
-    if (!selectedFile) { toast('Selecione um arquivo', 'error'); return }
+    // Link (Drive/Local) — sem upload
+    if (source !== 'SUPABASE') {
+      if (!reference.trim()) { toast('Cole o link do Drive ou o caminho local', 'error'); return }
+      if (source === 'DRIVE' && !/^https?:\/\//i.test(reference.trim())) {
+        toast('Link do Drive deve começar com http(s)://', 'error'); return
+      }
+      addLink.mutate({ ...(data as any), provider: source, storagePath: reference.trim() })
+      return
+    }
 
+    // Upload para Supabase (legado — pode falhar se o plano estiver cheio)
+    if (!selectedFile) { toast('Selecione um arquivo', 'error'); return }
     setUploading(true)
     try {
       const fd = new FormData()
@@ -202,9 +223,10 @@ function UploadModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
   }
 
   const isDark = wType === 'DARK' || wType === 'MASTER_DARK'
+  const busy = uploading || upload.isPending || addLink.isPending
 
   return (
-    <Modal open={open} onOpenChange={v => { if (!v) { reset(); setSelectedFile(null) } onOpenChange(v) }}
+    <Modal open={open} onOpenChange={v => { if (!v) { reset(); setSelectedFile(null); setReference('') } onOpenChange(v) }}
       title="Adicionar à Biblioteca" description="Calibração reutilizável por câmera e parâmetros" className="max-w-lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
@@ -277,26 +299,52 @@ function UploadModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
           <textarea {...register('notes')} className="input" rows={2} />
         </div>
 
-        {/* File picker */}
+        {/* Origem do arquivo */}
         <div>
-          <label className="input-label">Arquivo *</label>
-          <input ref={fileRef} type="file" className="hidden" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)} />
-          <button type="button" onClick={() => fileRef.current?.click()}
-            className={cn('w-full border-2 border-dashed rounded-lg p-4 text-sm text-center transition-colors',
-              selectedFile
-                ? 'border-aurora-400/40 text-aurora-400 bg-aurora-400/5'
-                : 'border-white/10 text-white/30 hover:border-white/20 hover:text-white/50')}>
-            {selectedFile
-              ? <><Upload className="w-4 h-4 inline mr-2" />{selectedFile.name} ({formatFileSize(selectedFile.size)})</>
-              : <><Upload className="w-4 h-4 inline mr-2" />Escolher arquivo</>}
-          </button>
+          <label className="input-label">Origem</label>
+          <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg w-fit mb-2">
+            {([['DRIVE', 'Drive'], ['LOCAL', 'Local'], ['SUPABASE', 'Upload']] as const).map(([v, l]) => (
+              <button key={v} type="button" onClick={() => setSource(v)}
+                className={cn('px-2.5 py-1 rounded-md text-xs font-medium', source === v ? 'bg-cosmos-500 text-white' : 'text-white/50')}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {source === 'SUPABASE' ? (
+            <>
+              <input ref={fileRef} type="file" className="hidden" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)} />
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className={cn('w-full border-2 border-dashed rounded-lg p-4 text-sm text-center transition-colors',
+                  selectedFile
+                    ? 'border-aurora-400/40 text-aurora-400 bg-aurora-400/5'
+                    : 'border-white/10 text-white/30 hover:border-white/20 hover:text-white/50')}>
+                {selectedFile
+                  ? <><Upload className="w-4 h-4 inline mr-2" />{selectedFile.name} ({formatFileSize(selectedFile.size)})</>
+                  : <><Upload className="w-4 h-4 inline mr-2" />Escolher arquivo</>}
+              </button>
+              <p className="text-[10px] text-amber-300/60 mt-1">
+                O upload usa o Supabase — pode falhar se o armazenamento estiver cheio. Prefira Drive ou Local.
+              </p>
+            </>
+          ) : (
+            <>
+              <input className="input" value={reference} onChange={e => setReference(e.target.value)}
+                placeholder={source === 'DRIVE' ? 'https://drive.google.com/…' : 'D:\\Astro\\masters\\master_dark_300s.fit'} />
+              <p className="text-[10px] text-white/25 mt-1">
+                {source === 'DRIVE'
+                  ? 'Cole o link de compartilhamento do master/arquivo no Drive.'
+                  : 'Caminho local do master — o agente do Siril usa este caminho diretamente.'}
+              </p>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
-          <button type="submit" disabled={uploading || upload.isPending} className="btn-primary flex items-center gap-2">
-            {(uploading || upload.isPending) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {uploading ? 'Enviando…' : upload.isPending ? 'Salvando…' : 'Adicionar'}
+          <button type="submit" disabled={busy} className="btn-primary flex items-center gap-2">
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {uploading ? 'Enviando…' : busy ? 'Salvando…' : 'Adicionar'}
           </button>
         </div>
       </form>
