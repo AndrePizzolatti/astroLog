@@ -2,6 +2,26 @@
 
 Anotações do que ficou de fora ou pra evoluir, pra não esquecer.
 
+## Ordem sugerida de implementação
+
+A ideia: introduzir uma **efeméride** cedo (ex.: `astronomy-engine`, MIT, offline) porque ela
+destrava planejador, calendário, visibilidade de planetas e alertas calculados de uma vez.
+
+1. **Efeméride + Planejador de sessão** — base que destrava o resto: altitude na noite, separação
+   da Lua, FOV do setup sobre o alvo, "melhores alvos hoje". (maior alavanca)
+2. **Calendário astronômico** — reaproveita a efeméride + o motor de eventos: grade do mês,
+   eventos do dia/mês e visibilidade dos planetas por dia (de que hora até que hora).
+3. **Alertas calculados + APOD** — com a efeméride, calcular oposições/conjunções/posição dos
+   planetas de verdade (substitui parte da tabela curada); APOD via NASA API.
+4. **Entrega de alertas (e-mail + cron)** — fecha o ciclo "não perder evento" (escolher provedor,
+   ex.: Resend; Vercel Cron). Pode ser puxado pra antes se quiser notificação logo.
+5. **Suporte a planetária** — `captureType` + formulário próprio (trilha paralela ao DSO).
+6. **Polimento** — thumbnails por sessão / thumb próprio; score de céu v2 com Lua; catálogo DSO offline.
+7. **Parte social** — páginas públicas + seguir (maior escopo, menor urgência pra uso pessoal).
+
+---
+
+
 ## Alertas
 - [ ] **Entrega por e-mail + cron** — hoje os eventos só aparecem no app. Falta um provedor
       de e-mail (ex.: Resend) e uma Vercel Cron que rode diariamente, compare os eventos com
