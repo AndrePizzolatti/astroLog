@@ -11,6 +11,7 @@ export interface SirilScriptOptions {
   hasBias:       boolean
   hasDarks:      boolean
   hasFlats:      boolean
+  hasDarkFlats:  boolean     // calibram os flats (preferidos ao bias quando presentes)
   extractHaOIII: boolean     // OSC com filtro dual-band → separa Ha e OIII
 }
 
@@ -38,15 +39,30 @@ function buildMasters(o: SirilScriptOptions): string[] {
     )
   }
 
+  if (o.hasDarkFlats) {
+    out.push(
+      '# --- Master Dark Flat ---',
+      'cd darkflats',
+      'convert darkflat -out=../process',
+      'cd ../process',
+      `stack darkflat ${REJ} -nonorm -out=../master_darkflat`,
+      'cd ..',
+      '',
+    )
+  }
+
   if (o.hasFlats) {
+    // Calibração do flat: dark flat tem prioridade sobre bias (mais correto)
+    const flatCalib =
+      o.hasDarkFlats ? [`calibrate flat -dark=../master_darkflat`, `stack pp_flat ${REJ} -norm=mul -out=../master_flat`]
+      : o.hasBias    ? [`calibrate flat -bias=../master_bias`,     `stack pp_flat ${REJ} -norm=mul -out=../master_flat`]
+      :                [`stack flat ${REJ} -norm=mul -out=../master_flat`]
     out.push(
       '# --- Master Flat ---',
       'cd flats',
       'convert flat -out=../process',
       'cd ../process',
-      ...(o.hasBias
-        ? [`calibrate flat -bias=../master_bias`, `stack pp_flat ${REJ} -norm=mul -out=../master_flat`]
-        : [`stack flat ${REJ} -norm=mul -out=../master_flat`]),
+      ...flatCalib,
       'cd ..',
       '',
     )
@@ -81,7 +97,7 @@ function generateOSC(o: SirilScriptOptions): string {
     '',
     `# ===== AstroLog — processamento OSC: ${o.target} =====`,
     '# Pastas esperadas na raiz do projeto: ./lights' +
-      [o.hasDarks ? ' ./darks' : '', o.hasFlats ? ' ./flats' : '', o.hasBias ? ' ./biases' : ''].join('') ,
+      [o.hasDarks ? ' ./darks' : '', o.hasFlats ? ' ./flats' : '', o.hasDarkFlats ? ' ./darkflats' : '', o.hasBias ? ' ./biases' : ''].join('') ,
     '# Intermediários vão para ./process ; resultados ficam na raiz.',
     '',
     ...buildMasters(o),
@@ -129,7 +145,7 @@ function generateMono(o: SirilScriptOptions): string {
     `#   (masters: ../master_dark e ../master_flat_<filtro> na raiz do projeto)`,
     '# Intermediários vão para ./process ; resultados ficam na raiz.',
     '',
-    ...buildMasters({ ...o, hasFlats: false }), // flats são por-filtro no mono — tratados abaixo
+    ...buildMasters({ ...o, hasFlats: false, hasDarkFlats: false }), // flats/darkflats são por-filtro no mono
   ]
 
   for (const f of filters) {
@@ -152,6 +168,158 @@ function generateMono(o: SirilScriptOptions): string {
 
 export function generateSirilScript(o: SirilScriptOptions): string {
   return o.isOSC ? generateOSC(o) : generateMono(o)
+}
+
+// ── SHO a partir de OSC dual-band (multi-sessão) ──────────────────────────────
+// Fluxo do André: noites com filtro Ha+OIII e noites com SII+OIII (câmera colorida).
+// Em cada noite: calibra (flats da própria noite + darks/darkflats compartilhados) e
+// extrai com seqextract_HaOIII. O canal "vermelho" da noite SII+OIII É o SII.
+// Depois: junta (merge) por canal entre as noites, registra e empilha. O OIII é
+// empilhado de TODAS as noites (melhor SNR no canal mais fraco). Por fim compõe
+// SHO/HOO/SOO. Pesos finos ficam no PixelMath (ver generateShoPixelMath).
+
+export interface SHOOptions {
+  target:        string
+  haoiiiNights:  number   // nº de noites com filtro Ha+OIII
+  siioiiiNights: number   // nº de noites com filtro SII+OIII
+  hasDarks:      boolean
+  hasDarkFlats:  boolean
+  hasBias:       boolean
+}
+
+function shoSharedMasters(o: SHOOptions): string[] {
+  const out: string[] = []
+  if (o.hasBias) {
+    out.push('# --- Master Bias (compartilhado) ---', 'cd biases', 'convert bias -out=../process', 'cd ../process',
+      `stack bias ${REJ} -nonorm -out=../master_bias`, 'cd ..', '')
+  }
+  if (o.hasDarkFlats) {
+    out.push('# --- Master Dark Flat (compartilhado) ---', 'cd darkflats', 'convert darkflat -out=../process', 'cd ../process',
+      `stack darkflat ${REJ} -nonorm -out=../master_darkflat`, 'cd ..', '')
+  }
+  if (o.hasDarks) {
+    out.push('# --- Master Dark (compartilhado) ---', 'cd darks', 'convert dark -out=../process', 'cd ../process',
+      `stack dark ${REJ} -nonorm -out=../master_dark`, 'cd ..', '')
+  }
+  return out
+}
+
+function shoFlatCalArg(o: SHOOptions): string {
+  return o.hasDarkFlats ? '-dark=../master_darkflat' : o.hasBias ? '-bias=../master_bias' : ''
+}
+
+// Bloco de uma noite: gera master flat da noite, calibra os lights e extrai Ha/OIII.
+// Retorna as sequências extraídas (haSeq = canal vermelho, oiiiSeq = canal verde/azul).
+function shoSessionBlock(o: SHOOptions, group: 'haoiii' | 'siioiii', i: number) {
+  const tag     = `${group}${i}`
+  const flatCal = shoFlatCalArg(o)
+  const darkArg = o.hasDarks ? '-dark=../master_dark -cc=dark' : ''
+  const label   = group === 'haoiii' ? 'Ha+OIII' : 'SII+OIII'
+
+  const lines = [
+    `# --- ${label} — noite ${i} ---`,
+    `cd ${group}_${i}/flats`,
+    `convert ${tag}flat -out=../../process`,
+    'cd ../../process',
+    ...(flatCal
+      ? [`calibrate ${tag}flat ${flatCal}`, `stack pp_${tag}flat ${REJ} -norm=mul -out=../master_flat_${tag}`]
+      : [`stack ${tag}flat ${REJ} -norm=mul -out=../master_flat_${tag}`]),
+    'cd ..',
+    `cd ${group}_${i}/lights`,
+    `convert ${tag} -out=../../process`,
+    'cd ../../process',
+    `calibrate ${tag} ${[darkArg, `-flat=../master_flat_${tag}`, '-cfa', '-equalize_cfa', '-debayer'].filter(Boolean).join(' ')}`,
+    `seqextract_HaOIII pp_${tag}`,
+    'cd ..',
+    '',
+  ]
+  return { lines, haSeq: `Ha_pp_${tag}`, oiiiSeq: `OIII_pp_${tag}` }
+}
+
+// Junta (se >1), registra e empilha um canal num resultado na raiz.
+function shoChannelStack(list: string[], name: string, outName: string): string[] {
+  if (list.length === 0) return []
+  const lines: string[] = [`# --- Canal ${name} ---`]
+  let seq: string
+  if (list.length === 1) {
+    seq = list[0]
+  } else {
+    seq = `${name}_all`
+    lines.push(`merge ${list.join(' ')} ${seq}`)
+  }
+  lines.push(
+    `register ${seq}`,
+    `stack r_${seq} ${REJ} -norm=addscale -output_norm -out=../${outName}`,
+    '',
+  )
+  return lines
+}
+
+export function generateSHOScript(o: SHOOptions): string {
+  const s = slug(o.target)
+  const ha = Math.max(0, Math.floor(o.haoiiiNights))
+  const si = Math.max(0, Math.floor(o.siioiiiNights))
+
+  const lines: string[] = [
+    'requires 1.2.0',
+    '',
+    `# ===== AstroLog — SHO de OSC (multi-sessão): ${o.target} =====`,
+    '# Compartilhado na raiz: ./darks' + (o.hasDarkFlats ? ' ./darkflats' : '') + (o.hasBias ? ' ./biases' : ''),
+    ha > 0 ? `# Noites Ha+OIII:  ./haoiii_1/lights + ./haoiii_1/flats  … até _${ha}` : '# (sem noites Ha+OIII)',
+    si > 0 ? `# Noites SII+OIII: ./siioiii_1/lights + ./siioiii_1/flats … até _${si}` : '# (sem noites SII+OIII)',
+    '# Flats são por noite. OIII é empilhado de TODAS as noites. Resultados na raiz.',
+    '',
+    ...shoSharedMasters(o),
+  ]
+
+  const haList:   string[] = []   // Ha (canal vermelho das noites Ha+OIII)
+  const siiList:  string[] = []   // SII (canal vermelho das noites SII+OIII)
+  const oiiiList: string[] = []   // OIII (verde/azul de TODAS as noites)
+
+  for (let i = 1; i <= ha; i++) {
+    const b = shoSessionBlock(o, 'haoiii', i)
+    lines.push(...b.lines)
+    haList.push(b.haSeq)
+    oiiiList.push(b.oiiiSeq)
+  }
+  for (let i = 1; i <= si; i++) {
+    const b = shoSessionBlock(o, 'siioiii', i)
+    lines.push(...b.lines)
+    siiList.push(b.haSeq)   // canal vermelho do SII+OIII = SII
+    oiiiList.push(b.oiiiSeq)
+  }
+
+  // Merge/register/stack acontece dentro de process/ (onde estão as sequências)
+  lines.push('# ===== Integração por canal =====', 'cd process', '')
+  lines.push(...shoChannelStack(haList,   'Ha',   `${s}_Ha`))
+  lines.push(...shoChannelStack(siiList,  'SII',  `${s}_SII`))
+  lines.push(...shoChannelStack(oiiiList, 'OIII', `${s}_OIII`))
+  lines.push('cd ..', '')
+
+  // Composições rápidas (sem pesos) — ponto de partida; afine no PixelMath
+  const hasHa = haList.length > 0, hasSii = siiList.length > 0, hasOiii = oiiiList.length > 0
+  lines.push('# ===== Composições (RGB) =====')
+  if (hasSii && hasHa && hasOiii) lines.push(`rgbcomp ${s}_SII ${s}_Ha ${s}_OIII -out=${s}_SHO`)
+  if (hasHa && hasOiii)           lines.push(`rgbcomp ${s}_Ha ${s}_OIII ${s}_OIII -out=${s}_HOO`)
+  if (hasSii && hasOiii)          lines.push(`rgbcomp ${s}_SII ${s}_OIII ${s}_OIII -out=${s}_SOO`)
+  lines.push('', 'close', '')
+
+  return lines.join('\n')
+}
+
+// Receita de PixelMath para SHO ponderado (PixInsight). Os pesos balanceiam o
+// Ha (que domina) — começe perto destes e ajuste a gosto.
+export function generateShoPixelMath(target: string, w: { s: number; h: number; o: number }): string {
+  const s = slug(target)
+  return `# PixelMath SHO ponderado — PixInsight (símbolos: S, H, O)
+# Aponte os símbolos para as imagens: S=${s}_SII  H=${s}_Ha  O=${s}_OIII
+# (Image > PixelMath, marque "Use a single RGB/K expression" desligado e use R/G/B)
+R:  ${w.s.toFixed(2)}*S
+G:  ${w.h.toFixed(2)}*H
+B:  ${w.o.toFixed(2)}*O
+# Symbols: S, H, O
+# Dica: Ha costuma dominar — segure o H (<1) e realce S e O. Reajuste com SCNR/curvas depois.
+`
 }
 
 // ── Limpeza segura (PowerShell) ──────────────────────────────────────────────
