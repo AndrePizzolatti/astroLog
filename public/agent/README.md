@@ -32,9 +32,12 @@ agentezinho roda local.
   "ssdArchiveDir": "E:/AstroArchive",
   "driveSyncDir":  "G:/Meu Drive/Astro",
   "archiveMasters": false,
-  "dflatMaxSeconds": 30
+  "dflatMaxSeconds": 30,
+  "filterMap": { "L-eXtreme": "HaOIII", "L-Ultimate": "HaOIII", "SII-OIII": "SIIOIII" }
 }
 ```
+
+- `filterMap` (opcional): mapeia o **nome do seu filtro** (header `FILTER`) para o grupo `HaOIII`, `SIIOIII` ou `broadband`. Usado na geração automática do script pra saber o que extrair. Sem o mapa, o agente tenta adivinhar pelo nome.
 
 - `ssdArchiveDir` (opcional): para onde os resultados são **movidos** ao terminar (arquivo canônico no SSD, libera o disco de trabalho).
 - `driveSyncDir` (opcional): pasta do **Google Drive para Desktop** — os resultados são **copiados** para cá e o Google sincroniza sozinho (backup offsite, sem API de escrita).
@@ -52,6 +55,21 @@ node siril-agent.mjs --project <projectId> --folder "D:/Astro/NGC3372" --script 
 ```
 
 O `<projectId>` é o trecho final da URL do projeto: `/dashboard/projects/<projectId>`.
+
+### Geração automática do script (sem precisar baixar o .ssf)
+
+Se você **não passar** `--script` (e não houver um `.ssf` na pasta), o agente **gera o script sozinho**, lendo os headers e a estrutura de pastas:
+
+- A pasta tem `lights/` (ou `LIGHT/`) → **noite única**: organiza e processa.
+- A pasta tem **subpastas de noite** (cada uma com lights) → **multi-noite**: organiza cada noite, calibra cada uma com **os flats/dflats da própria noite** (e se a noite não tiver, usa os gerais que estiverem na raiz do alvo — idem darks), agrupa por **filtro** (`HaOIII`/`SII OIII`/broadband), junta as noites por canal, empilha (o **OIII vai combinado de todas as noites**) e compõe SHO/HOO/SOO.
+
+Veja o script **antes de rodar** com `--dry-run` (não processa, só mostra):
+
+```bash
+node siril-agent.mjs --project <id> --folder "D:/Astro/NGC3372" --dry-run
+```
+
+Calibração geral compartilhada (opcional): coloque `darks/ dflats/ flats/ biases/` (minúsculo) na **raiz do alvo** — valem pras noites que não têm a sua própria.
 
 ### Organizar a pasta de captura
 

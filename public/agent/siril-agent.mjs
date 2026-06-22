@@ -22,7 +22,7 @@
 //   node siril-agent.mjs --organize "D:/Captura/2024-03-01" --into "D:/Astro/NGC3372"
 
 import {
-  readFileSync, existsSync, readdirSync, statSync, mkdirSync, renameSync,
+  readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync, renameSync,
   copyFileSync, unlinkSync, openSync, readSync, closeSync, rmdirSync,
 } from 'node:fs'
 import { spawn } from 'node:child_process'
@@ -177,6 +177,7 @@ function readFitsHeader(path) {
   return {
     imageType: get('IMAGETYP'),
     exposure:  parseFloat(get('EXPTIME') ?? get('EXPOSURE') ?? '') || undefined,
+    filter:    get('FILTER'),
   }
 }
 
@@ -249,6 +250,152 @@ function findResult(folder) {
   return files[0]?.n
 }
 
+// ── Geração dinâmica do script (noite única ou multi-noite, lendo os headers) ─────
+const REJ = 'rej 3 3'
+
+function hasFits(dir) {
+  try { return !!dir && existsSync(dir) && readdirSync(dir).some(n => /\.(fits?|fts)$/i.test(n)) } catch { return false }
+}
+function findSub(dir, names) { for (const c of names) { const p = join(dir, c); if (hasFits(p)) return p } return null }
+
+function readFilterOf(lightsDir) {
+  const f = readdirSync(lightsDir).filter(n => /\.(fits?|fts)$/i.test(n))[0]
+  if (!f) return undefined
+  try { return readFitsHeader(join(lightsDir, f)).filter } catch { return undefined }
+}
+
+// Classifica o filtro de uma noite: usa cfg.filterMap (nome → grupo) e, na falta, heurística.
+function classifyFilter(name, cfg) {
+  if (!name) return 'broadband'
+  const map = cfg.filterMap || {}
+  for (const k of Object.keys(map)) if (String(name).toLowerCase() === k.toLowerCase()) return map[k]
+  const n = String(name).toLowerCase()
+  if (/sii|s2/.test(n)) return 'SIIOIII'
+  if (/ha|extreme|ultimate|duo|enhance|nbz|alp-?t|l-?en/.test(n)) return 'HaOIII'
+  return 'broadband'
+}
+
+// Noite única (a pasta tem lights/) → null. Senão, lista as subpastas que têm lights/.
+function detectNights(target) {
+  if (findSub(target, ['lights', 'LIGHT', 'Light'])) return null
+  const nights = []
+  for (const n of readdirSync(target)) {
+    const p = join(target, n); let st
+    try { st = statSync(p) } catch { continue }
+    if (st.isDirectory() && findSub(p, ['lights', 'LIGHT', 'Light'])) nights.push(p)
+  }
+  return nights.length ? nights : null
+}
+
+function genScript(target, nightDirs, cfg) {
+  const proc = join(target, 'process')
+  const slug = basename(target).replace(/[^\w.-]+/g, '_') || 'resultado'
+  const q = p => `"${String(p).replace(/\\/g, '/')}"`
+  const L = ['requires 1.2.0', '', `# Gerado pelo agente AstroLog — ${nightDirs.length} noite(s)`, '']
+
+  const sharedDarks  = findSub(target, ['darks'])
+  const sharedDflats = findSub(target, ['dflats'])
+  const sharedFlats  = findSub(target, ['flats'])
+  const sharedBias   = findSub(target, ['biases'])
+
+  let biasMaster = null
+  if (sharedBias) {
+    biasMaster = join(proc, 'master_bias')
+    L.push('# Master Bias (geral)', `cd ${q(sharedBias)}`, `convert bs -out=${q(proc)}`, `cd ${q(proc)}`,
+      `stack bs ${REJ} -nonorm -out=${q(biasMaster)}`, '')
+  }
+
+  // memo p/ não reconstruir masters compartilhados a cada noite
+  const darkMemo = {}, dflatMemo = {}
+  function masterDark(dir) {
+    if (!dir) return null
+    if (darkMemo[dir]) return darkMemo[dir]
+    const out = join(proc, `master_dark_${Object.keys(darkMemo).length + 1}`)
+    L.push(`# Master Dark: ${dir}`, `cd ${q(dir)}`, `convert dk -out=${q(proc)}`, `cd ${q(proc)}`,
+      `stack dk ${REJ} -nonorm -out=${q(out)}`, '')
+    darkMemo[dir] = out; return out
+  }
+  function masterDflat(dir) {
+    if (!dir) return null
+    if (dflatMemo[dir]) return dflatMemo[dir]
+    const out = join(proc, `master_dflat_${Object.keys(dflatMemo).length + 1}`)
+    L.push(`# Master Dark Flat: ${dir}`, `cd ${q(dir)}`, `convert dkf -out=${q(proc)}`, `cd ${q(proc)}`,
+      `stack dkf ${REJ} -nonorm -out=${q(out)}`, '')
+    dflatMemo[dir] = out; return out
+  }
+
+  const ha = [], sii = [], oiii = [], color = []
+
+  nightDirs.forEach((nd, idx) => {
+    const i = idx + 1
+    const lightsDir = findSub(nd, ['lights', 'LIGHT', 'Light']); if (!lightsDir) return
+    const flatsDir  = findSub(nd, ['flats', 'FLAT', 'Flat'])   || sharedFlats
+    const dflatsDir = findSub(nd, ['dflats', 'DARKFLAT'])      || sharedDflats
+    const darksDir  = findSub(nd, ['darks', 'DARK', 'Dark'])   || sharedDarks
+    const group     = classifyFilter(readFilterOf(lightsDir), cfg)
+
+    L.push(`# ===== Noite ${i}: ${basename(nd)} — ${group} =====`)
+
+    // Master flat DESTA noite (calibrado pelo dflat da noite/geral, ou bias)
+    let flatMaster = null
+    if (flatsDir) {
+      flatMaster = join(proc, `master_flat_n${i}`)
+      const dfm = masterDflat(dflatsDir)
+      L.push(`cd ${q(flatsDir)}`, `convert f${i} -out=${q(proc)}`, `cd ${q(proc)}`)
+      if (dfm)             L.push(`calibrate f${i} -dark=${q(dfm)}`,        `stack pp_f${i} ${REJ} -norm=mul -out=${q(flatMaster)}`)
+      else if (biasMaster) L.push(`calibrate f${i} -bias=${q(biasMaster)}`, `stack pp_f${i} ${REJ} -norm=mul -out=${q(flatMaster)}`)
+      else                 L.push(`stack f${i} ${REJ} -norm=mul -out=${q(flatMaster)}`)
+    }
+    const darkMaster = masterDark(darksDir)
+
+    // Lights da noite
+    L.push(`cd ${q(lightsDir)}`, `convert n${i} -out=${q(proc)}`, `cd ${q(proc)}`)
+    const cal = [darkMaster ? `-dark=${q(darkMaster)} -cc=dark` : '', flatMaster ? `-flat=${q(flatMaster)}` : '',
+      '-cfa', '-equalize_cfa', '-debayer'].filter(Boolean).join(' ')
+    L.push(`calibrate n${i} ${cal}`)
+    if (group === 'HaOIII' || group === 'SIIOIII') {
+      L.push(`seqextract_HaOIII pp_n${i}`)
+      if (group === 'HaOIII') { ha.push(`Ha_pp_n${i}`); oiii.push(`OIII_pp_n${i}`) }
+      else                    { sii.push(`Ha_pp_n${i}`); oiii.push(`OIII_pp_n${i}`) } // vermelho do SII+OIII = SII
+    } else {
+      color.push(`pp_n${i}`)
+    }
+    L.push('')
+  })
+
+  // Empilha cada canal (merge se houver mais de uma noite)
+  function channel(list, name) {
+    if (!list.length) return false
+    const outAbs = join(target, `${slug}_${name}_stacked`)
+    let seq = list[0]
+    if (list.length > 1) { L.push(`merge ${list.join(' ')} ${name}_all`); seq = `${name}_all` }
+    L.push(`register ${seq}`, `stack r_${seq} ${REJ} -norm=addscale -output_norm -out=${q(outAbs)}`, '')
+    return true
+  }
+  L.push('# ===== Empilhamento por canal =====', `cd ${q(proc)}`)
+  const hasHa = channel(ha, 'Ha'), hasSii = channel(sii, 'SII'), hasOiii = channel(oiii, 'OIII')
+  channel(color, 'color')
+
+  // Composições rápidas (ponto de partida — afine no PixelMath)
+  L.push(`cd ${q(target)}`)
+  if (hasSii && hasHa && hasOiii) L.push(`rgbcomp ${slug}_SII_stacked ${slug}_Ha_stacked ${slug}_OIII_stacked -out=${q(join(target, slug + '_SHO'))}`)
+  if (hasHa && hasOiii)           L.push(`rgbcomp ${slug}_Ha_stacked ${slug}_OIII_stacked ${slug}_OIII_stacked -out=${q(join(target, slug + '_HOO'))}`)
+  if (hasSii && hasOiii)          L.push(`rgbcomp ${slug}_SII_stacked ${slug}_OIII_stacked ${slug}_OIII_stacked -out=${q(join(target, slug + '_SOO'))}`)
+  L.push('', 'close', '')
+  return L.join('\n')
+}
+
+// Organiza as pastas e gera o script conforme a estrutura encontrada.
+function buildSmartScript(folder, cfg) {
+  const nights = detectNights(folder)
+  if (!nights) {
+    organize(folder, folder, cfg)
+    return { mode: 'noite única', script: genScript(folder, [folder], cfg) }
+  }
+  for (const nd of nights) organize(nd, nd, cfg)
+  return { mode: `multi-noite (${nights.length})`, script: genScript(folder, nights, cfg) }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────────
 async function main() {
   const cfg  = loadConfig()
@@ -282,13 +429,25 @@ async function main() {
     return
   }
 
-  // --script padrão = o único .ssf da pasta
+  // Script: --script explícito → um .ssf na pasta → senão GERA automaticamente
   let script = typeof args.script === 'string' ? resolve(args.script) : null
   if (!script) {
-    const ssf = readdirSync(folder).filter(n => /\.ssf$/i.test(n))
+    const ssf = readdirSync(folder).filter(n => /\.ssf$/i.test(n) && n !== '_astrolog.ssf')
     if (ssf.length === 1) script = join(folder, ssf[0])
   }
-  if (!script) fail('Falta --script <arquivo.ssf> (ou deixe um único .ssf na pasta)')
+  if (!script) {
+    console.log('  nenhum .ssf informado — gerando automaticamente (lendo headers e pastas)…')
+    const gen = buildSmartScript(folder, cfg)
+    console.log(`  modo detectado: ${gen.mode}`)
+    if (args['dry-run']) {
+      console.log('\n----- SCRIPT GERADO (dry-run, nada foi processado) -----\n')
+      console.log(gen.script)
+      return
+    }
+    script = join(folder, '_astrolog.ssf')
+    writeFileSync(script, gen.script)
+    console.log(`  script salvo em ${script}`)
+  }
   if (!existsSync(script)) fail(`Script não encontrado: ${script}`)
 
   console.log(`▶ Processando ${projectId}\n  pasta: ${folder}\n  script: ${script}`)
