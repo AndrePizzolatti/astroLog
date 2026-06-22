@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  Link2, HardDrive, ExternalLink, Trash2, Plus, Copy, Check, Cloud, FolderOpen,
+  Link2, HardDrive, ExternalLink, Trash2, Plus, Copy, Check, Cloud, FolderOpen, Pencil,
 } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn, formatFileSize } from '@/lib/utils'
@@ -40,6 +40,7 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
   const utils = api.useUtils()
   const [addOpen, setAddOpen] = useState(false)
   const [driveOpen, setDriveOpen] = useState(false)
+  const [editing, setEditing] = useState<ProjectFile | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const del = api.projects.deleteFile.useMutation({
@@ -105,6 +106,9 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
                     {copiedId === f.id ? <Check className="w-3.5 h-3.5 text-aurora-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 )}
+                <button onClick={() => setEditing(f)} className="btn-ghost p-1.5 text-white/30 hover:text-white/70" title="Editar">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 <button onClick={() => del.mutate({ fileId: f.id })} className="btn-ghost p-1.5 text-white/30 hover:text-red-400" title="Remover">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -116,7 +120,57 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
 
       <AddLinkModal projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
       <DrivePicker projectId={projectId} open={driveOpen} onOpenChange={setDriveOpen} />
+      <EditLinkModal projectId={projectId} file={editing} onClose={() => setEditing(null)} />
     </div>
+  )
+}
+
+function EditLinkModal({ projectId, file, onClose }: { projectId: string; file: ProjectFile | null; onClose: () => void }) {
+  const { toast } = useToast()
+  const utils = api.useUtils()
+  const [label, setLabel]         = useState('')
+  const [reference, setReference] = useState('')
+  const [isFinal, setIsFinal]     = useState(false)
+
+  useEffect(() => {
+    if (file) { setLabel(file.label); setReference(file.storagePath); setIsFinal(file.isFinal) }
+  }, [file])
+
+  const upd = api.projects.updateFile.useMutation({
+    onSuccess: () => { utils.projects.byId.invalidate({ id: projectId }); toast('Atualizado!'); onClose() },
+    onError: (e) => toast(e.message, 'error'),
+  })
+
+  function submit() {
+    if (!label.trim() || !reference.trim()) { toast('Preencha nome e caminho', 'error'); return }
+    upd.mutate({ fileId: file!.id, label: label.trim(), storagePath: reference.trim(), isFinal })
+  }
+
+  return (
+    <Modal open={!!file} onOpenChange={v => { if (!v) onClose() }}
+      title="Editar arquivo" description="Atualize o nome ou o caminho/link (ex.: depois de mover o arquivo)">
+      <div className="space-y-4">
+        <div>
+          <label className="input-label">Nome</label>
+          <input className="input" value={label} onChange={e => setLabel(e.target.value)} />
+        </div>
+        <div>
+          <label className="input-label">Caminho / link</label>
+          <input className="input" value={reference} onChange={e => setReference(e.target.value)} />
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <span onClick={() => setIsFinal(v => !v)}
+            className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0', isFinal ? 'bg-aurora-400 border-aurora-400' : 'border-white/30')}>
+            {isFinal && <Check className="w-2.5 h-2.5 text-cosmos-950" />}
+          </span>
+          <span className="text-xs text-white/60" onClick={() => setIsFinal(v => !v)}>Resultado final</span>
+        </label>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" disabled={upd.isPending} onClick={submit}>Salvar</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

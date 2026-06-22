@@ -28,14 +28,23 @@ agentezinho roda local.
 {
   "appUrl": "https://seu-app.vercel.app",
   "token":  "cole-o-token-aqui",
-  "siril":  "C:/Program Files/Siril/bin/siril-cli.exe"
+  "siril":  "C:/Program Files/Siril/bin/siril-cli.exe",
+  "ssdArchiveDir": "E:/AstroArchive",
+  "driveSyncDir":  "G:/Meu Drive/Astro",
+  "archiveMasters": false,
+  "dflatMaxSeconds": 30
 }
 ```
+
+- `ssdArchiveDir` (opcional): para onde os resultados são **movidos** ao terminar (arquivo canônico no SSD, libera o disco de trabalho).
+- `driveSyncDir` (opcional): pasta do **Google Drive para Desktop** — os resultados são **copiados** para cá e o Google sincroniza sozinho (backup offsite, sem API de escrita).
+- Os caminhos finais são reportados ao AstroLog automaticamente (aparecem em **Arquivos & Links** do projeto).
 
 ## Uso
 
 1. Gere o script `.ssf` no AstroLog (botão **Siril** no projeto) e salve na pasta do projeto.
-2. Organize a pasta como o script espera: `lights/` e, se tiver, `darks/ flats/ biases/`.
+2. Organize a pasta como o script espera: `lights/` e, se tiver, `darks/ flats/ dflats/ biases/`.
+   (ou deixe o agente organizar — veja abaixo)
 3. Rode:
 
 ```bash
@@ -43,6 +52,21 @@ node siril-agent.mjs --project <projectId> --folder "D:/Astro/NGC3372" --script 
 ```
 
 O `<projectId>` é o trecho final da URL do projeto: `/dashboard/projects/<projectId>`.
+
+### Organizar a pasta de captura
+
+Sorteia os FITS por tipo (lê o header `IMAGETYP`) em `lights/ darks/ flats/ dflats/ biases/`.
+Darks com exposição ≤ `dflatMaxSeconds` viram dark flats.
+
+```bash
+node siril-agent.mjs --organize "D:/Captura/2024-03-01" --into "D:/Astro/NGC3372"
+```
+
+## Fluxo automático completo
+
+`captura (N.I.N.A.)` → `--organize` (arruma as pastas) → importa no app (cria a sessão) →
+`processar` (Siril + limpeza) → **arquivamento** (move pro SSD + copia pro Drive) →
+o app registra os caminhos finais sozinho.
 
 ## Segurança
 

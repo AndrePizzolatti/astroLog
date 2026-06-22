@@ -235,4 +235,25 @@ export const projectsRouter = router({
       await ctx.prisma.projectFile.delete({ where: { id: input.fileId } })
       return { provider: file.provider, storagePath: file.storagePath }
     }),
+
+  // Edita o registro de um arquivo (ex.: quando você move o arquivo de lugar)
+  updateFile: protectedProcedure
+    .input(z.object({
+      fileId:      z.string(),
+      label:       z.string().min(1).optional(),
+      provider:    z.enum(['SUPABASE', 'DRIVE', 'LOCAL']).optional(),
+      storagePath: z.string().min(1).optional(),
+      isFinal:     z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { fileId, ...data } = input
+      const file = await ctx.prisma.projectFile.findUnique({
+        where:   { id: fileId },
+        include: { project: { select: { userId: true } } },
+      })
+      if (!file || file.project.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: 'NOT_FOUND' })
+      }
+      return ctx.prisma.projectFile.update({ where: { id: fileId }, data })
+    }),
 })
