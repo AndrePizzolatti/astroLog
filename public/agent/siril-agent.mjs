@@ -23,7 +23,7 @@
 
 import {
   readFileSync, existsSync, readdirSync, statSync, mkdirSync, renameSync,
-  copyFileSync, unlinkSync, openSync, readSync, closeSync,
+  copyFileSync, unlinkSync, openSync, readSync, closeSync, rmdirSync,
 } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -193,6 +193,19 @@ function walkFits(dir, acc) {
   }
 }
 
+// Remove pastas vazias (bottom-up), nunca a própria raiz.
+function removeEmptyDirs(dir) {
+  let entries; try { entries = readdirSync(dir) } catch { return }
+  for (const n of entries) {
+    const p = join(dir, n)
+    let st; try { st = statSync(p) } catch { continue }
+    if (st.isDirectory()) {
+      removeEmptyDirs(p)
+      try { if (readdirSync(p).length === 0) rmdirSync(p) } catch { /* não vazia / em uso */ }
+    }
+  }
+}
+
 function organize(captureDir, projectDir, cfg) {
   const files = []
   walkFits(captureDir, files)
@@ -205,11 +218,14 @@ function organize(captureDir, projectDir, cfg) {
     else if (t.includes('flat') && t.includes('dark')) sub = 'dflats'
     else if (t.includes('flat'))                  sub = 'flats'
     else if (t.includes('bias'))                  sub = 'biases'
+    // N.I.N.A. grava dark flats como DARK também → separa pelo tempo de exposição
     else if (t.includes('dark'))                  sub = (h.exposure != null && h.exposure <= cfg.dflatMaxSeconds) ? 'dflats' : 'darks'
     else continue
     const dDir = join(projectDir, sub); mkdirSync(dDir, { recursive: true })
     moveFile(src, join(dDir, basename(src))); moved++
   }
+  // Apaga as pastas de origem que ficaram vazias (LIGHT/ FLAT/ DARK/ do N.I.N.A.)
+  removeEmptyDirs(captureDir)
   return moved
 }
 
