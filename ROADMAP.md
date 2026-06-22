@@ -13,8 +13,9 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 2. [x] **Calendário astronômico** — FEITO. `/dashboard/calendar`: grade do mês (fase da Lua +
    eventos), painel do dia (eventos + visibilidade dos planetas com janela de/até e altitude máx),
    lista de eventos do mês. `planetVisibility` em `sky.ts`.
-3. **Alertas calculados + APOD** — com a efeméride, calcular oposições/conjunções/posição dos
-   planetas de verdade (substitui parte da tabela curada); APOD via NASA API.
+3. [x] **Alertas calculados + APOD** — FEITO. Eclipses e oposições calculados via astronomy-engine
+   (qualquer ano, sem tabela); card do APOD na página de alertas. (Falta: conjunções planeta-planeta,
+   elongações de Mercúrio/Vênus, e visibilidade local de eclipse solar.)
 4. **Entrega de alertas (e-mail + cron)** — fecha o ciclo "não perder evento" (escolher provedor,
    ex.: Resend; Vercel Cron). Pode ser puxado pra antes se quiser notificação logo.
 5. **Suporte a planetária** — `captureType` + formulário próprio (trilha paralela ao DSO).
@@ -25,6 +26,9 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 
 
 ## Alertas
+- [x] Eclipses e oposições **calculados** (astronomy-engine) + **APOD** do dia na página.
+- [ ] **Conjunções** planeta-planeta (amostragem de aproximação) e **elongações** de Mercúrio/Vênus.
+- [ ] **Visibilidade local** do eclipse solar (SearchLocalSolarEclipse com a localização).
 - [ ] **Entrega por e-mail + cron** — hoje os eventos só aparecem no app. Falta um provedor
       de e-mail (ex.: Resend) e uma Vercel Cron que rode diariamente, compare os eventos com
       as inscrições (e o `advanceHours`) e dispare o aviso. (fecha o ciclo do alerta)
