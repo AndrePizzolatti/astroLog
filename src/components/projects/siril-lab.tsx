@@ -57,8 +57,8 @@ export function SirilLab({ open, onOpenChange, target, isOSCDefault, filters }: 
   // SHO
   const [haoiiiNights, setHaoiii]   = useState(1)
   const [siioiiiNights, setSiioiii] = useState(1)
-  const [wS, setWS] = useState(1.2)
-  const [wH, setWH] = useState(0.7)
+  const [wS, setWS] = useState(2.5)   // realça o SII (dourado)
+  const [wH, setWH] = useState(0.4)   // segura o Ha para o SCNR agir
   const [wO, setWO] = useState(1.0)
 
   const [copied, setCopied] = useState(false)

@@ -42,7 +42,7 @@ function buildMasters(o: SirilScriptOptions): string[] {
   if (o.hasDarkFlats) {
     out.push(
       '# --- Master Dark Flat ---',
-      'cd darkflats',
+      'cd dflats',
       'convert darkflat -out=../process',
       'cd ../process',
       `stack darkflat ${REJ} -nonorm -out=../master_darkflat`,
@@ -97,7 +97,7 @@ function generateOSC(o: SirilScriptOptions): string {
     '',
     `# ===== AstroLog — processamento OSC: ${o.target} =====`,
     '# Pastas esperadas na raiz do projeto: ./lights' +
-      [o.hasDarks ? ' ./darks' : '', o.hasFlats ? ' ./flats' : '', o.hasDarkFlats ? ' ./darkflats' : '', o.hasBias ? ' ./biases' : ''].join('') ,
+      [o.hasDarks ? ' ./darks' : '', o.hasFlats ? ' ./flats' : '', o.hasDarkFlats ? ' ./dflats' : '', o.hasBias ? ' ./biases' : ''].join('') ,
     '# Intermediários vão para ./process ; resultados ficam na raiz.',
     '',
     ...buildMasters(o),
@@ -264,7 +264,7 @@ export function generateSHOScript(o: SHOOptions): string {
     'requires 1.2.0',
     '',
     `# ===== AstroLog — SHO de OSC (multi-sessão): ${o.target} =====`,
-    '# Compartilhado na raiz: ./darks' + (o.hasDarkFlats ? ' ./darkflats' : '') + (o.hasBias ? ' ./biases' : ''),
+    '# Compartilhado na raiz: ./darks' + (o.hasDarkFlats ? ' ./dflats' : '') + (o.hasBias ? ' ./biases' : ''),
     ha > 0 ? `# Noites Ha+OIII:  ./haoiii_1/lights + ./haoiii_1/flats  … até _${ha}` : '# (sem noites Ha+OIII)',
     si > 0 ? `# Noites SII+OIII: ./siioiii_1/lights + ./siioiii_1/flats … até _${si}` : '# (sem noites SII+OIII)',
     '# Flats são por noite. OIII é empilhado de TODAS as noites. Resultados na raiz.',
