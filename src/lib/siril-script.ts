@@ -187,15 +187,13 @@ export interface SHOOptions {
   hasBias:       boolean
 }
 
+// Masters compartilhados entre as noites: dark (lights) e bias. Dark flats NÃO
+// entram aqui — eles casam a exposição do flat, que muda por sessão (sem painel).
 function shoSharedMasters(o: SHOOptions): string[] {
   const out: string[] = []
   if (o.hasBias) {
     out.push('# --- Master Bias (compartilhado) ---', 'cd biases', 'convert bias -out=../process', 'cd ../process',
       `stack bias ${REJ} -nonorm -out=../master_bias`, 'cd ..', '')
-  }
-  if (o.hasDarkFlats) {
-    out.push('# --- Master Dark Flat (compartilhado) ---', 'cd darkflats', 'convert darkflat -out=../process', 'cd ../process',
-      `stack darkflat ${REJ} -nonorm -out=../master_darkflat`, 'cd ..', '')
   }
   if (o.hasDarks) {
     out.push('# --- Master Dark (compartilhado) ---', 'cd darks', 'convert dark -out=../process', 'cd ../process',
@@ -204,20 +202,28 @@ function shoSharedMasters(o: SHOOptions): string[] {
   return out
 }
 
-function shoFlatCalArg(o: SHOOptions): string {
-  return o.hasDarkFlats ? '-dark=../master_darkflat' : o.hasBias ? '-bias=../master_bias' : ''
-}
-
-// Bloco de uma noite: gera master flat da noite, calibra os lights e extrai Ha/OIII.
-// Retorna as sequências extraídas (haSeq = canal vermelho, oiiiSeq = canal verde/azul).
+// Bloco de uma noite: master dflat da noite (se houver) → master flat da noite →
+// calibra os lights e extrai Ha/OIII. Os dflats/flats são da PRÓPRIA noite.
 function shoSessionBlock(o: SHOOptions, group: 'haoiii' | 'siioiii', i: number) {
   const tag     = `${group}${i}`
-  const flatCal = shoFlatCalArg(o)
   const darkArg = o.hasDarks ? '-dark=../master_dark -cc=dark' : ''
   const label   = group === 'haoiii' ? 'Ha+OIII' : 'SII+OIII'
+  const lines: string[] = [`# --- ${label} — noite ${i} ---`]
 
-  const lines = [
-    `# --- ${label} — noite ${i} ---`,
+  // Master dark flat DESTA noite (casa a exposição dos flats desta noite)
+  if (o.hasDarkFlats) {
+    lines.push(
+      `cd ${group}_${i}/dflats`,
+      `convert ${tag}dflat -out=../../process`,
+      'cd ../../process',
+      `stack ${tag}dflat ${REJ} -nonorm -out=../master_dflat_${tag}`,
+      'cd ..',
+    )
+  }
+
+  // Master flat DESTA noite (calibrado pelo dflat da noite, ou bias compartilhado)
+  const flatCal = o.hasDarkFlats ? `-dark=../master_dflat_${tag}` : o.hasBias ? '-bias=../master_bias' : ''
+  lines.push(
     `cd ${group}_${i}/flats`,
     `convert ${tag}flat -out=../../process`,
     'cd ../../process',
@@ -225,6 +231,10 @@ function shoSessionBlock(o: SHOOptions, group: 'haoiii' | 'siioiii', i: number) 
       ? [`calibrate ${tag}flat ${flatCal}`, `stack pp_${tag}flat ${REJ} -norm=mul -out=../master_flat_${tag}`]
       : [`stack ${tag}flat ${REJ} -norm=mul -out=../master_flat_${tag}`]),
     'cd ..',
+  )
+
+  // Lights DESTA noite: dark compartilhado + flat da noite, depois extrai
+  lines.push(
     `cd ${group}_${i}/lights`,
     `convert ${tag} -out=../../process`,
     'cd ../../process',
@@ -232,7 +242,7 @@ function shoSessionBlock(o: SHOOptions, group: 'haoiii' | 'siioiii', i: number) 
     `seqextract_HaOIII pp_${tag}`,
     'cd ..',
     '',
-  ]
+  )
   return { lines, haSeq: `Ha_pp_${tag}`, oiiiSeq: `OIII_pp_${tag}` }
 }
 
@@ -264,10 +274,10 @@ export function generateSHOScript(o: SHOOptions): string {
     'requires 1.2.0',
     '',
     `# ===== AstroLog — SHO de OSC (multi-sessão): ${o.target} =====`,
-    '# Compartilhado na raiz: ./darks' + (o.hasDarkFlats ? ' ./dflats' : '') + (o.hasBias ? ' ./biases' : ''),
-    ha > 0 ? `# Noites Ha+OIII:  ./haoiii_1/lights + ./haoiii_1/flats  … até _${ha}` : '# (sem noites Ha+OIII)',
-    si > 0 ? `# Noites SII+OIII: ./siioiii_1/lights + ./siioiii_1/flats … até _${si}` : '# (sem noites SII+OIII)',
-    '# Flats são por noite. OIII é empilhado de TODAS as noites. Resultados na raiz.',
+    '# Compartilhado na raiz: ./darks' + (o.hasBias ? ' ./biases' : ''),
+    ha > 0 ? `# Noites Ha+OIII:  ./haoiii_1/{lights,flats${o.hasDarkFlats ? ',dflats' : ''}} … até _${ha}` : '# (sem noites Ha+OIII)',
+    si > 0 ? `# Noites SII+OIII: ./siioiii_1/{lights,flats${o.hasDarkFlats ? ',dflats' : ''}} … até _${si}` : '# (sem noites SII+OIII)',
+    '# Flats e dark flats são por noite. OIII é empilhado de TODAS as noites. Resultados na raiz.',
     '',
     ...shoSharedMasters(o),
   ]
