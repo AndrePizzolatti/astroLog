@@ -23,10 +23,12 @@ Anotações do que ficou de fora ou pra evoluir, pra não esquecer.
       % empilhado, ROI, seeing, derotação/WinJUPOS). Processamento é AutoStakkert/RegiStax
       (o fluxo Siril/agente não se aplica). Provavelmente uma aba/variante de formulário.
 
-## Visual / portfólio (não construído)
-- [ ] **Thumbnails** do resultado por projeto/sessão e uma **galeria/portfólio** pra visualizar.
-      Imagens vivem no Drive/local → usar o **thumbnail do Drive** (`drive.google.com/thumbnail?id=…`)
-      derivado do id do link, ou um thumb pequeno; LOCAL não dá pra exibir no navegador.
+## Visual / portfólio
+- [x] **Portfólio/galeria** — feito (`/dashboard/portfolio`), usa o thumbnail do Drive derivado do
+      link da imagem final. LOCAL mostra placeholder.
+- [ ] Pendências: thumbnail por **sessão** (não só projeto); o thumbnail do Drive só carrega se o
+      arquivo estiver compartilhado ("qualquer pessoa com link") ou logado na conta — talvez gerar/subir
+      um thumb pequeno próprio pra garantir exibição.
 
 ## Social (só modelos no schema)
 - [ ] Página **pública** de projeto (usa o `Visibility` que já existe) + **seguir** observadores
