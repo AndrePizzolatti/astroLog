@@ -10,8 +10,9 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 1. [x] **Efeméride + Planejador de sessão** — FEITO. `astronomy-engine` em `src/lib/sky.ts`;
    `/dashboard/planner` com curva de altitude, trânsito, horas visíveis, Lua (iluminação/separação)
    e ranking de "melhores alvos da noite". (Falta: FOV do setup sobre o alvo.)
-2. **Calendário astronômico** — reaproveita a efeméride + o motor de eventos: grade do mês,
-   eventos do dia/mês e visibilidade dos planetas por dia (de que hora até que hora).
+2. [x] **Calendário astronômico** — FEITO. `/dashboard/calendar`: grade do mês (fase da Lua +
+   eventos), painel do dia (eventos + visibilidade dos planetas com janela de/até e altitude máx),
+   lista de eventos do mês. `planetVisibility` em `sky.ts`.
 3. **Alertas calculados + APOD** — com a efeméride, calcular oposições/conjunções/posição dos
    planetas de verdade (substitui parte da tabela curada); APOD via NASA API.
 4. **Entrega de alertas (e-mail + cron)** — fecha o ciclo "não perder evento" (escolher provedor,
@@ -37,15 +38,11 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [ ] Cruzar previsão + equipamento + alvos: curva de **altitude** na noite, **separação da Lua**,
       **FOV** do setup sobre o alvo, e recomendação de exposição/integração.
 
-## Calendário astronômico (ideia — não construído)
-- [ ] Vista de **calendário** (grade do mês) que mostra:
-      - os **eventos do dia** (reusa o motor `src/lib/astro-events.ts`);
-      - a **lista de eventos do mês**;
-      - a **visibilidade dos planetas por dia** — quais estão visíveis e **de que hora até que hora**
-        (nascer/pôr e a janela acima do horizonte), pra localização do usuário.
-- Abordagem: usar uma efeméride pra nascer/pôr/altitude dos planetas — ex.: lib `astronomy-engine`
-  (MIT, sem API externa) — e cruzar com a localização do perfil e com o motor de eventos.
-- Sobrepõe com o "Planejador de sessão" (mesma base de altitude/visibilidade) — dá pra fazer juntos.
+## Calendário astronômico — FEITO
+- [x] `/dashboard/calendar`: grade do mês (fase da Lua + eventos), painel do dia (eventos +
+      visibilidade dos planetas, janela de/até e altitude máx) e lista de eventos do mês.
+- [ ] Evoluções possíveis: marcar no calendário as noites de melhor "score" de céu (cruzar com a
+      previsão), e destacar dias com janela de lua nova longa.
 
 ## Imagem planetária (não construído)
 - [ ] Suportar captura **planetária** (lucky imaging, vídeo alto-FPS, fora do N.I.N.A.). Modelo
