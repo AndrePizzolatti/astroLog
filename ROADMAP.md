@@ -18,7 +18,8 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
    elongações de Mercúrio/Vênus, e visibilidade local de eclipse solar.)
 4. **Entrega de alertas (e-mail + cron)** — fecha o ciclo "não perder evento" (escolher provedor,
    ex.: Resend; Vercel Cron). Pode ser puxado pra antes se quiser notificação logo.
-5. **Suporte a planetária** — `captureType` + formulário próprio (trilha paralela ao DSO).
+5. [x] **Suporte a planetária** — FEITO. `captureType` (DSO/Planetária) no projeto; sessão
+   planetária com fps/exposição-ms/total de frames/% empilhado/ROI/software; form e card próprios.
 6. **Polimento** — thumbnails por sessão / thumb próprio; score de céu v2 com Lua; catálogo DSO offline.
 7. **Parte social** — páginas públicas + seguir (maior escopo, menor urgência pra uso pessoal).
 
@@ -27,7 +28,8 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 
 ## Alertas
 - [x] Eclipses e oposições **calculados** (astronomy-engine) + **APOD** do dia na página.
-- [ ] **Conjunções** planeta-planeta (amostragem de aproximação) e **elongações** de Mercúrio/Vênus.
+- [x] **Elongações** de Mercúrio/Vênus (máxima elongação) — entram como evento.
+- [ ] **Conjunções** planeta-planeta (amostragem de aproximação).
 - [ ] **Visibilidade local** do eclipse solar (SearchLocalSolarEclipse com a localização).
 - [ ] **Entrega por e-mail + cron** — hoje os eventos só aparecem no app. Falta um provedor
       de e-mail (ex.: Resend) e uma Vercel Cron que rode diariamente, compare os eventos com
@@ -48,12 +50,10 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [ ] Evoluções possíveis: marcar no calendário as noites de melhor "score" de céu (cruzar com a
       previsão), e destacar dias com janela de lua nova longa.
 
-## Imagem planetária (não construído)
-- [ ] Suportar captura **planetária** (lucky imaging, vídeo alto-FPS, fora do N.I.N.A.). Modelo
-      diferente do DSO: `captureType` (DSO | PLANETARY); sessão planetária com campos próprios
-      (software FireCapture/SharpCap, formato SER/AVI, fps, exposição em ms, total de frames,
-      % empilhado, ROI, seeing, derotação/WinJUPOS). Processamento é AutoStakkert/RegiStax
-      (o fluxo Siril/agente não se aplica). Provavelmente uma aba/variante de formulário.
+## Imagem planetária — FEITO
+- [x] `captureType` (DSO/Planetária); sessão planetária com software/formato/fps/exposição-ms/
+      total de frames/% empilhado/ROI; form e card próprios; Siril e import de pasta ocultos.
+- [ ] Evoluções: integração com derotação (WinJUPOS) e métricas agregadas planetárias no projeto.
 
 ## Visual / portfólio
 - [x] **Portfólio/galeria** — feito (`/dashboard/portfolio`), usa o thumbnail do Drive derivado do
