@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Search, Loader2 } from 'lucide-react'
 import { api } from '@/lib/trpc'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
 import { POPULAR_TARGETS } from '@/lib/popular-targets'
@@ -14,6 +15,7 @@ const schema = z.object({
   name:         z.string().min(2, 'Nome obrigatório'),
   targetObject: z.string().min(1, 'Objeto-alvo obrigatório'),
   targetType:   z.string().optional(),
+  captureType:  z.enum(['DSO', 'PLANETARY']).default('DSO'),
   description:  z.string().optional(),
   setupId:      z.string().optional(),
   status:       z.enum(['PLANNING','IN_PROGRESS','READY_TO_PROCESS','PROCESSING','COMPLETED','ARCHIVED']).default('IN_PROGRESS'),
@@ -35,6 +37,7 @@ const STATUS_OPTIONS = [
 
 export type ProjectInitial = {
   id: string; name: string; targetObject: string; targetType?: string | null
+  captureType?: string | null
   description?: string | null; setupId?: string | null; status: string
   visibility: string; raHours?: number | null; decDegrees?: number | null
 }
@@ -51,10 +54,12 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
   const utils = api.useUtils()
   const { data: setups } = api.setups.list.useQuery()
 
-  const { register, handleSubmit, reset, setValue, getValues, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { status: 'IN_PROGRESS', visibility: 'PRIVATE' },
+    defaultValues: { status: 'IN_PROGRESS', visibility: 'PRIVATE', captureType: 'DSO' },
   })
+
+  const isPlanetary = watch('captureType') === 'PLANETARY'
 
   const resolve = api.catalog.resolve.useMutation()
 
@@ -79,13 +84,14 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
         name:         initial.name,
         targetObject: initial.targetObject,
         targetType:   initial.targetType ?? '',
+        captureType:  (initial.captureType as any) ?? 'DSO',
         description:  initial.description ?? '',
         setupId:      initial.setupId ?? '',
         status:       initial.status as any,
         visibility:   initial.visibility as any,
         raHours:      initial.raHours ?? '',
         decDegrees:   initial.decDegrees ?? '',
-      } : { status: 'IN_PROGRESS', visibility: 'PRIVATE' })
+      } : { status: 'IN_PROGRESS', visibility: 'PRIVATE', captureType: 'DSO' })
     }
   }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -124,19 +130,35 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
             {errors.name && <p className="input-error">{errors.name.message}</p>}
           </div>
           <div className="col-span-2">
+            <label className="input-label">Tipo de captura</label>
+            <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg w-fit">
+              {(['DSO', 'PLANETARY'] as const).map(ct => (
+                <button key={ct} type="button" onClick={() => setValue('captureType', ct, { shouldDirty: true })}
+                  className={cn('px-3 py-1 rounded-md text-xs font-medium', (watch('captureType') ?? 'DSO') === ct ? 'bg-cosmos-500 text-white' : 'text-white/50')}>
+                  {ct === 'DSO' ? 'Céu profundo (DSO)' : 'Planetária'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="col-span-2">
             <label className="input-label">Objeto-alvo *</label>
             <div className="flex gap-2">
-              <input {...register('targetObject')} list="popular-targets" className="input flex-1" placeholder="M42, NGC 7293, IC 5070…" />
-              <button type="button" onClick={resolveTarget} disabled={resolve.isPending}
-                className="btn-secondary flex items-center gap-1.5 shrink-0" title="Buscar coordenadas (SIMBAD)">
-                {resolve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                Resolver
-              </button>
+              <input {...register('targetObject')} list={isPlanetary ? undefined : 'popular-targets'} className="input flex-1"
+                placeholder={isPlanetary ? 'Júpiter, Saturno, Lua…' : 'M42, NGC 7293, IC 5070…'} />
+              {!isPlanetary && (
+                <button type="button" onClick={resolveTarget} disabled={resolve.isPending}
+                  className="btn-secondary flex items-center gap-1.5 shrink-0" title="Buscar coordenadas (SIMBAD)">
+                  {resolve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  Resolver
+                </button>
+              )}
             </div>
-            <datalist id="popular-targets">
-              {POPULAR_TARGETS.map(t => <option key={t} value={t} />)}
-            </datalist>
-            <p className="text-[11px] text-white/30 mt-1">Digite o nome e clique em Resolver pra preencher tipo, AR e Dec automaticamente.</p>
+            {!isPlanetary && (
+              <>
+                <datalist id="popular-targets">{POPULAR_TARGETS.map(t => <option key={t} value={t} />)}</datalist>
+                <p className="text-[11px] text-white/30 mt-1">Digite o nome e clique em Resolver pra preencher tipo, AR e Dec automaticamente.</p>
+              </>
+            )}
             {errors.targetObject && <p className="input-error">{errors.targetObject.message}</p>}
           </div>
           <div>
@@ -164,14 +186,18 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
               <option value="PUBLIC">Público</option>
             </select>
           </div>
-          <div>
-            <label className="input-label">AR (horas)</label>
-            <input {...register('raHours')} type="number" step="0.001" className="input" placeholder="5.589" />
-          </div>
-          <div>
-            <label className="input-label">Dec (graus)</label>
-            <input {...register('decDegrees')} type="number" step="0.001" className="input" placeholder="-5.391" />
-          </div>
+          {!isPlanetary && (
+            <>
+              <div>
+                <label className="input-label">AR (horas)</label>
+                <input {...register('raHours')} type="number" step="0.001" className="input" placeholder="5.589" />
+              </div>
+              <div>
+                <label className="input-label">Dec (graus)</label>
+                <input {...register('decDegrees')} type="number" step="0.001" className="input" placeholder="-5.391" />
+              </div>
+            </>
+          )}
           <div className="col-span-2">
             <label className="input-label">Descrição</label>
             <textarea {...register('description')} className="input" rows={2} placeholder="Objetivos, desafios, notas…" />

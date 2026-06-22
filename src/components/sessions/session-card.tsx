@@ -34,6 +34,14 @@ interface SessionCardProps {
     notes: string | null
     setup: { name: string } | null
     files: Array<{ id: string; fileType: string; originalName: string }>
+    // Planetária (opcionais)
+    captureSoftware?: string | null
+    videoFormat?: string | null
+    fps?: number | null
+    exposureMs?: number | null
+    totalFrames?: number | null
+    stackedPct?: number | null
+    roi?: string | null
   }
   onEdit?: () => void
   onClone?: () => void
@@ -164,6 +172,21 @@ export function SessionCard({ session, onEdit, onClone }: SessionCardProps) {
         {session.binning              && <span>Bin {session.binning}</span>}
         {session.sensorTempC != null && <span>{session.sensorTempC}°C sensor</span>}
       </div>
+
+      {/* Planetária */}
+      {(session.totalFrames != null || session.fps != null || session.captureSoftware) && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mono text-white/60">
+          {session.totalFrames != null && (
+            <span>{session.totalFrames.toLocaleString('pt-BR')} frames
+              {session.stackedPct != null && <span className="text-white/30"> ({session.stackedPct}% empilhado)</span>}
+            </span>
+          )}
+          {session.fps        != null && <span>{session.fps} fps</span>}
+          {session.exposureMs != null && <span>{session.exposureMs} ms</span>}
+          {session.roi                && <span>ROI {session.roi}</span>}
+          {session.captureSoftware    && <span className="text-white/40">{session.captureSoftware}{session.videoFormat ? ` · ${session.videoFormat}` : ''}</span>}
+        </div>
+      )}
 
       {/* Conditions */}
       {(session.seeingArcsec || session.sqmValue || session.bortleScale || session.guidingRmsArcsec) && (

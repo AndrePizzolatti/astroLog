@@ -68,6 +68,14 @@ export const sessionsRouter = router({
       binning:         z.string().optional(),
       sensorTempC:     z.number().optional(),
       guidingRmsArcsec: z.number().positive().optional(),
+      // Planetária
+      captureSoftware: z.string().optional(),
+      videoFormat:     z.string().optional(),
+      fps:             z.number().positive().optional(),
+      exposureMs:      z.number().positive().optional(),
+      totalFrames:     z.number().int().min(0).optional(),
+      stackedPct:      z.number().int().min(0).max(100).optional(),
+      roi:             z.string().optional(),
       notes:           z.string().optional(),
       rating:          z.number().int().min(1).max(5).optional(),
     }))
@@ -169,6 +177,14 @@ export const sessionsRouter = router({
       binning:         z.string().nullable().optional(),
       sensorTempC:     z.number().nullable().optional(),
       guidingRmsArcsec: z.number().positive().nullable().optional(),
+      // Planetária
+      captureSoftware: z.string().nullable().optional(),
+      videoFormat:     z.string().nullable().optional(),
+      fps:             z.number().positive().nullable().optional(),
+      exposureMs:      z.number().positive().nullable().optional(),
+      totalFrames:     z.number().int().min(0).nullable().optional(),
+      stackedPct:      z.number().int().min(0).max(100).nullable().optional(),
+      roi:             z.string().nullable().optional(),
       notes:           z.string().nullable().optional(),
       rating:          z.number().int().min(1).max(5).nullable().optional(),
     }))

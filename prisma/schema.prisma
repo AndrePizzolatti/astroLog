@@ -218,6 +218,7 @@ model ImagingProject {
   name                    String
   targetObject            String
   targetType              String?
+  captureType             CaptureType   @default(DSO)
   description             String?       @db.Text
   status                  ProjectStatus @default(IN_PROGRESS)
   visibility              Visibility    @default(PRIVATE)
@@ -258,6 +259,14 @@ model ImagingSession {
   binning          String?
   sensorTempC      Float?
   guidingRmsArcsec Float?
+  // Planetária (lucky imaging / vídeo de alto FPS)
+  captureSoftware  String?
+  videoFormat      String?
+  fps              Float?
+  exposureMs       Float?
+  totalFrames      Int?
+  stackedPct       Int?
+  roi              String?
   notes            String?  @db.Text
   rating           Int?
   createdAt        DateTime @default(now())
@@ -418,6 +427,11 @@ enum StorageProvider {
   SUPABASE   // upload no bucket do app
   DRIVE      // referência a um arquivo/pasta do Google Drive (URL)
   LOCAL      // caminho num disco local do usuário
+}
+
+enum CaptureType {
+  DSO        // céu profundo (lights/integração)
+  PLANETARY  // planetária (lucky imaging, vídeo de alto FPS)
 }
 
 enum ColorType {
