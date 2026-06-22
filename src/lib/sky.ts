@@ -75,6 +75,44 @@ export function planTarget(
   }
 }
 
+// ── Visibilidade dos planetas na noite ────────────────────────────────────────
+const PLANETS: { body: Astronomy.Body; name: string }[] = [
+  { body: Astronomy.Body.Mercury, name: 'Mercúrio' },
+  { body: Astronomy.Body.Venus,   name: 'Vênus' },
+  { body: Astronomy.Body.Mars,    name: 'Marte' },
+  { body: Astronomy.Body.Jupiter, name: 'Júpiter' },
+  { body: Astronomy.Body.Saturn,  name: 'Saturno' },
+  { body: Astronomy.Body.Uranus,  name: 'Urano' },
+  { body: Astronomy.Body.Neptune, name: 'Netuno' },
+]
+
+export interface PlanetVis {
+  name:    string
+  visible: boolean
+  from:    Date | null   // início da janela acima de ~10° durante a noite
+  to:      Date | null
+  maxAlt:  number
+}
+
+// Pra cada planeta: janela observável (acima de 10° e céu escuro) e altitude máxima.
+export function planetVisibility(date: Date, lat: number, lon: number, bounds?: NightBounds): PlanetVis[] {
+  const o = obs(lat, lon)
+  const b = bounds ?? nightBounds(date, lat, lon)
+  const stepMs = 15 * 60 * 1000
+
+  return PLANETS.map(p => {
+    let maxAlt = -90, from: Date | null = null, to: Date | null = null
+    for (let t = b.sunset.getTime(); t <= b.sunrise.getTime(); t += stepMs) {
+      const d = new Date(t)
+      const eq  = Astronomy.Equator(p.body, d, o, true, true)
+      const alt = Astronomy.Horizon(d, o, eq.ra, eq.dec, 'normal').altitude
+      if (alt > maxAlt) maxAlt = alt
+      if (alt >= 10) { if (!from) from = d; to = d }
+    }
+    return { name: p.name, visible: maxAlt >= 10, from, to, maxAlt: Math.round(maxAlt) }
+  })
+}
+
 // Versão leve para ranquear vários alvos: só máximo de altitude + trânsito + horas visíveis.
 export function quickMax(
   raH: number, decDeg: number, lat: number, lon: number, bounds: NightBounds, minAlt = 30,
