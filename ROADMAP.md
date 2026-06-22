@@ -16,6 +16,16 @@ Anotações do que ficou de fora ou pra evoluir, pra não esquecer.
 - [ ] Cruzar previsão + equipamento + alvos: curva de **altitude** na noite, **separação da Lua**,
       **FOV** do setup sobre o alvo, e recomendação de exposição/integração.
 
+## Calendário astronômico (ideia — não construído)
+- [ ] Vista de **calendário** (grade do mês) que mostra:
+      - os **eventos do dia** (reusa o motor `src/lib/astro-events.ts`);
+      - a **lista de eventos do mês**;
+      - a **visibilidade dos planetas por dia** — quais estão visíveis e **de que hora até que hora**
+        (nascer/pôr e a janela acima do horizonte), pra localização do usuário.
+- Abordagem: usar uma efeméride pra nascer/pôr/altitude dos planetas — ex.: lib `astronomy-engine`
+  (MIT, sem API externa) — e cruzar com a localização do perfil e com o motor de eventos.
+- Sobrepõe com o "Planejador de sessão" (mesma base de altitude/visibilidade) — dá pra fazer juntos.
+
 ## Imagem planetária (não construído)
 - [ ] Suportar captura **planetária** (lucky imaging, vídeo alto-FPS, fora do N.I.N.A.). Modelo
       diferente do DSO: `captureType` (DSO | PLANETARY); sessão planetária com campos próprios
