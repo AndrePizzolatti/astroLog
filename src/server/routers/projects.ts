@@ -63,6 +63,32 @@ export const projectsRouter = router({
       }
     }),
 
+  // Portfólio: projetos com imagem de capa (final), pra galeria visual.
+  gallery: protectedProcedure.query(async ({ ctx }) => {
+    const projects = await ctx.prisma.imagingProject.findMany({
+      where: { userId: ctx.session.user.id },
+      include: {
+        projectFiles: {
+          where:   { OR: [{ isFinal: true }, { fileType: { in: ['FINAL_JPEG', 'FINAL_TIFF'] } }] },
+          orderBy: [{ isFinal: 'desc' }, { createdAt: 'desc' }],
+          take:    1,
+          select:  { provider: true, storagePath: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+    return projects.map(p => ({
+      id:                      p.id,
+      name:                    p.name,
+      targetObject:            p.targetObject,
+      targetType:              p.targetType,
+      status:                  p.status,
+      totalIntegrationMinutes: p.totalIntegrationMinutes,
+      totalLights:             p.totalLights,
+      cover:                   p.projectFiles[0] ?? null,
+    }))
+  }),
+
   byId: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
