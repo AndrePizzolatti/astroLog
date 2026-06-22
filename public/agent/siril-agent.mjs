@@ -180,11 +180,24 @@ function readFitsHeader(path) {
   }
 }
 
+// Coleta FITS recursivamente (pega arquivos dentro de LIGHT/ FLAT/ DARKFLAT/ do N.I.N.A.),
+// pulando as pastas de destino já organizadas e a lixeira/process.
+function walkFits(dir, acc) {
+  for (const n of readdirSync(dir)) {
+    const p = join(dir, n)
+    let st; try { st = statSync(p) } catch { continue }
+    if (st.isDirectory()) {
+      if (/^(lights|darks|flats|dflats|biases|_astrolog_trash|process)$/i.test(n)) continue
+      walkFits(p, acc)
+    } else if (/\.(fits?|fts)$/i.test(n)) acc.push(p)
+  }
+}
+
 function organize(captureDir, projectDir, cfg) {
-  const files = readdirSync(captureDir).filter(n => /\.(fits?|fts)$/i.test(n))
+  const files = []
+  walkFits(captureDir, files)
   let moved = 0
-  for (const name of files) {
-    const src = join(captureDir, name)
+  for (const src of files) {
     let h; try { h = readFitsHeader(src) } catch { continue }
     const t = (h.imageType || '').toLowerCase()
     let sub
@@ -195,7 +208,7 @@ function organize(captureDir, projectDir, cfg) {
     else if (t.includes('dark'))                  sub = (h.exposure != null && h.exposure <= cfg.dflatMaxSeconds) ? 'dflats' : 'darks'
     else continue
     const dDir = join(projectDir, sub); mkdirSync(dDir, { recursive: true })
-    moveFile(src, join(dDir, name)); moved++
+    moveFile(src, join(dDir, basename(src))); moved++
   }
   return moved
 }
