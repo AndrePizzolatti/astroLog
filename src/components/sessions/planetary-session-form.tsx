@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
+import { FileUp } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { getMoonPhase } from '@/lib/moon'
 import { cn } from '@/lib/utils'
+import { parsePlanetaryFile } from '@/lib/planetary-meta'
 import { useToast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
 
@@ -49,11 +51,29 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
   const utils = api.useUtils()
   const { data: setups } = api.setups.list.useQuery()
 
-  const { register, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { observedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm") },
   })
   const observedAt = watch('observedAt')
+  const metaRef = useRef<HTMLInputElement>(null)
+
+  async function onMetaFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    const m = await parsePlanetaryFile(f).catch(() => null)
+    if (!m || !Object.values(m).some(v => v !== undefined)) { toast('Nenhum metadado reconhecido no arquivo', 'error'); return }
+    if (m.observedAt)          setValue('observedAt', format(m.observedAt, "yyyy-MM-dd'T'HH:mm"))
+    if (m.totalFrames != null) setValue('totalFrames', m.totalFrames as any)
+    if (m.roi)                 setValue('roi', m.roi)
+    if (m.fps != null)         setValue('fps', m.fps as any)
+    if (m.exposureMs != null)  setValue('exposureMs', m.exposureMs as any)
+    if (m.gain != null)        setValue('gain', m.gain as any)
+    if (m.filterUsed)          setValue('filterUsed', m.filterUsed)
+    if (m.captureSoftware)     setValue('captureSoftware', m.captureSoftware)
+    toast('Preenchido a partir do arquivo')
+  }
 
   useEffect(() => {
     if (!open) return
@@ -127,6 +147,14 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
               {setups?.map(s => <option key={s.id} value={s.id}>{s.name}{s.isDefault ? ' ★' : ''}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* Import automático de metadados */}
+        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-white/10 bg-white/2">
+          <FileUp className="w-4 h-4 text-white/30 shrink-0" />
+          <p className="text-[11px] text-white/40 flex-1">Importe um <strong className="text-white/60">.ser</strong> ou o <strong className="text-white/60">log .txt do FireCapture</strong> pra preencher automaticamente</p>
+          <input ref={metaRef} type="file" accept=".ser,.txt,.log" className="hidden" onChange={onMetaFile} />
+          <button type="button" className="btn-secondary text-xs shrink-0" onClick={() => metaRef.current?.click()}>Importar</button>
         </div>
 
         <div>

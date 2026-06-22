@@ -158,6 +158,21 @@ function elongationOccurrences(from: Date, to: Date): AstroEvent[] {
   return out
 }
 
+// Brilho máximo de Vênus (greatest brilliancy) — entre a elongação e a conjunção inferior.
+function venusBrilliancy(from: Date, to: Date): AstroEvent[] {
+  const out: AstroEvent[] = []
+  try {
+    let e = Astronomy.SearchPeakMagnitude(Astronomy.Body.Venus, from)
+    for (let i = 0; i < 6; i++) {
+      const d = e.time.date
+      if (d > to) break
+      if (d >= from) out.push({ type: 'PLANET_OPPOSITION', name: 'Vênus — brilho máximo', date: iso(d), note: `mag ${e.mag.toFixed(1)} — pico de brilho` })
+      e = Astronomy.SearchPeakMagnitude(Astronomy.Body.Venus, new Date(d.getTime() + 30 * 86_400_000))
+    }
+  } catch { /* ignore */ }
+  return out
+}
+
 // Eventos dos próximos `days` dias, ordenados por data.
 export function upcomingEvents(from: Date, days: number): AstroEvent[] {
   const start = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
@@ -168,5 +183,6 @@ export function upcomingEvents(from: Date, days: number): AstroEvent[] {
     ...eclipseOccurrences(start, end),
     ...oppositionOccurrences(start, end),
     ...elongationOccurrences(start, end),
+    ...venusBrilliancy(start, end),
   ].sort((a, b) => a.date.localeCompare(b.date))
 }
