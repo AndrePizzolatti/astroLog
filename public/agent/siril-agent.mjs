@@ -27,7 +27,7 @@ import {
 } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve, basename } from 'node:path'
+import { dirname, join, resolve, basename, parse } from 'node:path'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -56,7 +56,12 @@ function parseArgs() {
   const args = {}
   const a = process.argv.slice(2)
   for (let i = 0; i < a.length; i++) {
-    if (a[i].startsWith('--')) { args[a[i].slice(2)] = a[i + 1]; i++ }
+    if (a[i].startsWith('--')) {
+      const key = a[i].slice(2)
+      const next = a[i + 1]
+      if (next && !next.startsWith('--')) { args[key] = next; i++ }
+      else { args[key] = true }   // flag sem valor (ex.: --archive)
+    }
   }
   return args
 }
@@ -104,12 +109,25 @@ function cleanup(folder) {
   console.log(`  movidos ${targets.length} item(s) de intermediários para ${trash}`)
 }
 
-// ── Arquivamento ─────────────────────────────────────────────────────────────────
-// Move os keepers (resultados, e masters se configurado) para o SSD (canônico) e
-// copia para a pasta do Drive sincronizado (backup). Retorna o manifesto p/ o app.
+// O volume do destino está montado/acessível? (ex.: E:\ conectado)
+function destAvailable(dir) {
+  try { return existsSync(parse(dir).root || dir) } catch { return false }
+}
+
+// ── Arquivamento (opcional e à prova de falha) ────────────────────────────────────
+// Cada destino é opcional: se não estiver no config, é pulado. Se estiver no config
+// mas o disco/pasta não estiver acessível (SSD desconectado, Drive sem sync), avisa
+// e pula — NUNCA apaga a única cópia nem trava. Retorna o manifesto p/ o app.
 function archive(folder, target, cfg) {
   const manifest = []
-  if (!cfg.ssdArchiveDir && !cfg.driveSyncDir) return manifest
+  const ssdOk   = !!cfg.ssdArchiveDir && destAvailable(cfg.ssdArchiveDir)
+  const driveOk = !!cfg.driveSyncDir  && destAvailable(cfg.driveSyncDir)
+
+  if (cfg.ssdArchiveDir && !ssdOk)
+    console.warn(`  (aviso) SSD indisponível (${cfg.ssdArchiveDir}) — pulei. Resultados seguem na pasta de trabalho.`)
+  if (cfg.driveSyncDir && !driveOk)
+    console.warn(`  (aviso) pasta do Drive indisponível (${cfg.driveSyncDir}) — pulei.`)
+  if (!ssdOk && !driveOk) return manifest
 
   const keepers = readdirSync(folder).filter(n => {
     try { if (!statSync(join(folder, n)).isFile()) return false } catch { return false }
@@ -123,19 +141,23 @@ function archive(folder, target, cfg) {
     const fileType = isMaster ? (/flat/i.test(name) ? 'MASTER_FLAT' : 'MASTER_DARK')
                               : (/\.(tif|tiff)$/i.test(name) ? 'FINAL_TIFF' : 'STACK')
 
-    // backup no Drive sincronizado (cópia)
-    if (cfg.driveSyncDir) {
-      const dDir = join(cfg.driveSyncDir, target); mkdirSync(dDir, { recursive: true })
-      const dst = join(dDir, name); copyFileSync(src, dst)
-      manifest.push({ label: `${name} (Drive)`, provider: 'LOCAL', storagePath: dst, fileType, isFinal })
-      console.log(`  ↳ Drive: ${dst}`)
+    // Backup no Drive sincronizado primeiro (cópia) — se falhar, o original fica intacto
+    if (driveOk) {
+      try {
+        const dDir = join(cfg.driveSyncDir, target); mkdirSync(dDir, { recursive: true })
+        const dst = join(dDir, name); copyFileSync(src, dst)
+        manifest.push({ label: `${name} (Drive)`, provider: 'LOCAL', storagePath: dst, fileType, isFinal })
+        console.log(`  ↳ Drive: ${dst}`)
+      } catch (e) { console.warn(`  (aviso) falha ao copiar ${name} p/ o Drive: ${e.message}`) }
     }
-    // arquivo canônico no SSD (move — libera o disco de trabalho)
-    if (cfg.ssdArchiveDir) {
-      const sDir = join(cfg.ssdArchiveDir, target); mkdirSync(sDir, { recursive: true })
-      const dst = join(sDir, name); moveFile(src, dst)
-      manifest.push({ label: name, provider: 'LOCAL', storagePath: dst, fileType, isFinal })
-      console.log(`  ↳ SSD: ${dst}`)
+    // Arquivo canônico no SSD (move — libera o disco de trabalho). Se falhar, fica na pasta.
+    if (ssdOk) {
+      try {
+        const sDir = join(cfg.ssdArchiveDir, target); mkdirSync(sDir, { recursive: true })
+        const dst = join(sDir, name); moveFile(src, dst)
+        manifest.push({ label: name, provider: 'LOCAL', storagePath: dst, fileType, isFinal })
+        console.log(`  ↳ SSD: ${dst}`)
+      } catch (e) { console.warn(`  (aviso) falha ao mover ${name} p/ o SSD: ${e.message}`) }
     }
   }
   return manifest
@@ -205,8 +227,9 @@ async function main() {
 
   // Modo organizar (não processa)
   if (args.organize) {
+    if (typeof args.organize !== 'string') fail('Uso: --organize "<pasta de captura>" [--into "<pasta do projeto>"]')
     const captureDir = resolve(args.organize)
-    const projectDir = args.into ? resolve(args.into) : captureDir
+    const projectDir = typeof args.into === 'string' ? resolve(args.into) : captureDir
     if (!existsSync(captureDir)) fail(`Pasta não encontrada: ${captureDir}`)
     const n = organize(captureDir, projectDir, cfg)
     console.log(`✓ Organizados ${n} arquivo(s) em ${projectDir} (lights/darks/flats/dflats/biases)`)
@@ -214,13 +237,31 @@ async function main() {
   }
 
   if (!cfg.appUrl || !cfg.token) fail('Configure appUrl e token em siril-agent.config.json')
-  const projectId = args.project; if (!projectId) fail('Falta --project <projectId>')
-  const folder    = args.folder ? resolve(args.folder) : null; if (!folder) fail('Falta --folder <pasta>')
-  const script    = args.script ? resolve(args.script) : null; if (!script) fail('Falta --script <arquivo.ssf>')
+  const projectId = args.project; if (!projectId || projectId === true) fail('Falta --project <projectId>')
+
+  // --folder padrão = a pasta onde você está rodando o comando
+  const folder = typeof args.folder === 'string' ? resolve(args.folder) : process.cwd()
   if (!existsSync(folder)) fail(`Pasta não encontrada: ${folder}`)
+  const target = typeof args.target === 'string' ? args.target : basename(folder)
+
+  // Modo arquivar-apenas (sem reprocessar): node ... --project <id> --archive
+  if (args.archive) {
+    console.log(`▶ Arquivando ${folder}`)
+    const manifest = archive(folder, target, cfg)
+    await report(cfg, { projectId, status: 'done', files: manifest.length ? manifest : undefined })
+    console.log(manifest.length ? `\n✓ ${manifest.length} arquivo(s) arquivado(s) e registrado(s).` : '\n(nada arquivado — confira a config e a conexão dos discos)')
+    return
+  }
+
+  // --script padrão = o único .ssf da pasta
+  let script = typeof args.script === 'string' ? resolve(args.script) : null
+  if (!script) {
+    const ssf = readdirSync(folder).filter(n => /\.ssf$/i.test(n))
+    if (ssf.length === 1) script = join(folder, ssf[0])
+  }
+  if (!script) fail('Falta --script <arquivo.ssf> (ou deixe um único .ssf na pasta)')
   if (!existsSync(script)) fail(`Script não encontrado: ${script}`)
 
-  const target = args.target || basename(folder)
   console.log(`▶ Processando ${projectId}\n  pasta: ${folder}\n  script: ${script}`)
   await report(cfg, { projectId, status: 'processing' })
 
