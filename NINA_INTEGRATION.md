@@ -1,6 +1,10 @@
 # AstroLog × N.I.N.A. — Projeto de Integração
 
-Documento de design para implementação futura.  
+> **Status (jun/2026): implementado.** O import de sequência `.json` está no app
+> (`nina-sequence-import`) e o watcher/automação virou o **agente local**
+> (`public/agent/`). Este documento fica como design/referência histórica.
+
+Documento de design (referência histórica).  
 Stack de referência: Next.js 14 App Router · tRPC v11 · Prisma + Supabase PostgreSQL · NextAuth v4.
 
 ---
