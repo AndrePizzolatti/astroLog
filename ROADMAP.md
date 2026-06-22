@@ -7,8 +7,9 @@ Anotações do que ficou de fora ou pra evoluir, pra não esquecer.
 A ideia: introduzir uma **efeméride** cedo (ex.: `astronomy-engine`, MIT, offline) porque ela
 destrava planejador, calendário, visibilidade de planetas e alertas calculados de uma vez.
 
-1. **Efeméride + Planejador de sessão** — base que destrava o resto: altitude na noite, separação
-   da Lua, FOV do setup sobre o alvo, "melhores alvos hoje". (maior alavanca)
+1. [x] **Efeméride + Planejador de sessão** — FEITO. `astronomy-engine` em `src/lib/sky.ts`;
+   `/dashboard/planner` com curva de altitude, trânsito, horas visíveis, Lua (iluminação/separação)
+   e ranking de "melhores alvos da noite". (Falta: FOV do setup sobre o alvo.)
 2. **Calendário astronômico** — reaproveita a efeméride + o motor de eventos: grade do mês,
    eventos do dia/mês e visibilidade dos planetas por dia (de que hora até que hora).
 3. **Alertas calculados + APOD** — com a efeméride, calcular oposições/conjunções/posição dos
