@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import {
   LayoutDashboard, Telescope, CloudSun, Bell, Settings,
-  LogOut, Star, ChevronRight, Library, Images,
+  LogOut, Star, ChevronRight, Library, Images, CalendarRange,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +14,7 @@ const NAV = [
   { href: '/dashboard/portfolio', icon: Images,           label: 'Portfólio' },
   { href: '/dashboard/equipment', icon: Telescope,        label: 'Equipamento' },
   { href: '/dashboard/weather',   icon: CloudSun,         label: 'Previsão' },
+  { href: '/dashboard/planner',   icon: CalendarRange,    label: 'Planejador' },
   { href: '/dashboard/library',   icon: Library,          label: 'Biblioteca' },
   { href: '/dashboard/alerts',    icon: Bell,             label: 'Alertas' },
   { href: '/dashboard/settings',  icon: Settings,         label: 'Configurações' },
