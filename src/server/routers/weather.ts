@@ -10,21 +10,27 @@ interface OpenMeteoResponse {
     wind_speed_10m: number[]
     precipitation_probability: number[]
     precipitation: number[]
+    wind_speed_250hPa: number[]   // jet stream — proxy de seeing
+    wind_speed_500hPa: number[]   // vento de médio nível
   }
 }
 
 interface NightScore {
-  date:          string
-  score:         number
-  label:         string
-  cloudCoverAvg: number
-  windAvg:       number
-  precipRisk:    number
-  moonIllumPct:  number   // % iluminada (fase) no meio da noite
-  moonUpPct:     number   // % das horas noturnas com a Lua acima do horizonte
-  moonEmoji:     string
-  moonLabel:     string
-  hours:         Array<{
+  date:            string
+  scoreDso:        number   // céu profundo: nuvem + vento + chuva + Lua
+  labelDso:        string
+  scorePlanetary:  number   // planetária/lunar: nuvem + vento + chuva + seeing (sem Lua)
+  labelPlanetary:  string
+  cloudCoverAvg:   number
+  windAvg:         number
+  precipRisk:      number
+  moonIllumPct:    number   // % iluminada (fase) no meio da noite
+  moonUpPct:       number   // % das horas noturnas com a Lua acima do horizonte
+  moonEmoji:       string
+  moonLabel:       string
+  seeingKmh:       number   // jet stream médio (250 hPa), km/h
+  seeingLabel:     string   // rótulo do seeing estimado
+  hours:           Array<{
     time:  string
     cloud: number
     wind:  number
@@ -73,6 +79,34 @@ function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; 
 
   const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - moonPenalty)
   return Math.round(raw)
+}
+
+const MAX_SEEING_PENALTY = 45
+
+// Seeing estimado a partir do vento em altitude (jet stream a 250 hPa, com peso menor pro
+// nível médio a 500 hPa). Jet forte = ar turbulento = seeing ruim. Proxy clássico — não é
+// medição, mas é o melhor sinal grátis. Valores em km/h.
+function seeingFrom(avgJet: number, avgMid: number): { penalty: number; label: string } {
+  const proxy = avgJet * 0.7 + avgMid * 0.3
+  const t = Math.min(1, Math.max(0, (proxy - 30) / (130 - 30)))   // 30 km/h ótimo → 130 péssimo
+  const penalty = t * MAX_SEEING_PENALTY
+  const label = proxy < 45 ? 'Excelente' : proxy < 75 ? 'Bom' : proxy < 110 ? 'Médio' : 'Ruim'
+  return { penalty, label }
+}
+
+// Score planetário/lunar: a Lua NÃO conta (alvos brilhantes) e o seeing domina.
+function scorePlanetaryNight(hours: Array<{ cloud: number; wind: number; precip: number }>, seeingPenalty = 0): number {
+  if (hours.length === 0) return 0
+  const avgCloud  = hours.reduce((s, h) => s + h.cloud, 0) / hours.length
+  const avgWind   = hours.reduce((s, h) => s + h.wind, 0) / hours.length
+  const avgPrecip = hours.reduce((s, h) => s + h.precip, 0) / hours.length
+
+  // nuvem 60 (dá pra pegar buracos), vento de superfície 20 (vibração), chuva 30, seeing até 45
+  const cloudPenalty  = (avgCloud / 100) * 60
+  const windPenalty   = Math.min((avgWind / 50) * 20, 20)
+  const precipPenalty = (avgPrecip / 100) * 30
+
+  return Math.round(Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - seeingPenalty))
 }
 
 function scoreLabel(score: number): string {
@@ -171,7 +205,7 @@ export const weatherRouter = router({
       const lon = input?.longitude ?? user?.longitude ?? -48.5
 
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-        `&hourly=cloud_cover,wind_speed_10m,precipitation_probability,precipitation` +
+        `&hourly=cloud_cover,wind_speed_10m,precipitation_probability,precipitation,wind_speed_250hPa,wind_speed_500hPa` +
         `&timezone=America%2FSao_Paulo&forecast_days=8`
 
       const res = await fetch(url)
@@ -198,17 +232,21 @@ export const weatherRouter = router({
         let night = nights.find(n => n.date === nightKey)
         if (!night) {
           night = {
-            date:          nightKey,
-            score:         0,
-            label:         '',
-            cloudCoverAvg: 0,
-            windAvg:       0,
-            precipRisk:    0,
-            moonIllumPct:  0,
-            moonUpPct:     0,
-            moonEmoji:     '🌑',
-            moonLabel:     '',
-            hours:         [],
+            date:           nightKey,
+            scoreDso:       0,
+            labelDso:       '',
+            scorePlanetary: 0,
+            labelPlanetary: '',
+            cloudCoverAvg:  0,
+            windAvg:        0,
+            precipRisk:     0,
+            moonIllumPct:   0,
+            moonUpPct:      0,
+            moonEmoji:      '🌑',
+            moonLabel:      '',
+            seeingKmh:      0,
+            seeingLabel:    '',
+            hours:          [],
           }
           nights.push(night)
         }
@@ -219,20 +257,32 @@ export const weatherRouter = router({
           wind:  data.hourly.wind_speed_10m[i] ?? 0,
           precip: data.hourly.precipitation_probability[i] ?? 0,
           precipitation: data.hourly.precipitation[i] ?? 0,
+          jet:   data.hourly.wind_speed_250hPa[i] ?? 0,
+          mid:   data.hourly.wind_speed_500hPa[i] ?? 0,
         } as any)
       })
 
       nights.forEach(night => {
+        const hrs           = night.hours as any[]
+        const n             = hrs.length || 1
+        const avgJet        = hrs.reduce((s, h) => s + (h.jet ?? 0), 0) / n
+        const avgMid        = hrs.reduce((s, h) => s + (h.mid ?? 0), 0) / n
         const moon          = moonFactor(lat, lon, night.hours)
-        night.score         = scoreNight(night.hours as any, moon.penalty)
-        night.label         = scoreLabel(night.score)
-        night.cloudCoverAvg = +(night.hours.reduce((s, h) => s + h.cloud, 0) / (night.hours.length || 1)).toFixed(1)
-        night.windAvg       = +(night.hours.reduce((s, h) => s + h.wind, 0)  / (night.hours.length || 1)).toFixed(1)
-        night.precipRisk    = +(night.hours.reduce((s, h) => s + h.precip, 0) / (night.hours.length || 1)).toFixed(1)
-        night.moonIllumPct  = moon.illumPct
-        night.moonUpPct     = moon.upPct
-        night.moonEmoji     = moon.emoji
-        night.moonLabel     = moon.label
+        const seeing        = seeingFrom(avgJet, avgMid)
+
+        night.scoreDso        = scoreNight(hrs, moon.penalty)
+        night.labelDso        = scoreLabel(night.scoreDso)
+        night.scorePlanetary  = scorePlanetaryNight(hrs, seeing.penalty)
+        night.labelPlanetary  = scoreLabel(night.scorePlanetary)
+        night.cloudCoverAvg   = +(hrs.reduce((s, h) => s + h.cloud, 0) / n).toFixed(1)
+        night.windAvg         = +(hrs.reduce((s, h) => s + h.wind, 0)  / n).toFixed(1)
+        night.precipRisk      = +(hrs.reduce((s, h) => s + h.precip, 0) / n).toFixed(1)
+        night.moonIllumPct    = moon.illumPct
+        night.moonUpPct       = moon.upPct
+        night.moonEmoji       = moon.emoji
+        night.moonLabel       = moon.label
+        night.seeingKmh       = Math.round(avgJet)
+        night.seeingLabel     = seeing.label
       })
 
       return {

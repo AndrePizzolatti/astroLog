@@ -2,12 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CloudSun, Cloud, CloudRain, Wind, Eye, MapPin, ChevronDown, ChevronUp, Settings, LocateFixed, X } from 'lucide-react'
+import { CloudSun, Cloud, CloudRain, Wind, Eye, MapPin, ChevronDown, ChevronUp, Settings, LocateFixed, X, Telescope } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { CitySearch } from '@/components/ui/city-search'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+
+// Modo de score: céu profundo (penaliza a Lua) vs planetária (prioriza seeing).
+type Mode = 'dso' | 'planetary'
+const activeScore = (n: any, mode: Mode) => (mode === 'dso' ? n.scoreDso : n.scorePlanetary)
+const activeLabel = (n: any, mode: Mode) => (mode === 'dso' ? n.labelDso : n.labelPlanetary)
 
 // ─────────────────────────────── Sub-components ────
 
@@ -84,8 +89,10 @@ function HourlyDetail({ hours }: { hours: HourEntry[] }) {
 
 // ─────────────────────────────── Night card ────
 
-function NightCard({ night }: { night: any }) {
+function NightCard({ night, mode }: { night: any; mode: Mode }) {
   const [expanded, setExpanded] = useState(false)
+  const score = activeScore(night, mode)
+  const label = activeLabel(night, mode)
 
   return (
     <div className="card p-4 space-y-3">
@@ -101,12 +108,12 @@ function NightCard({ night }: { night: any }) {
 
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-2xl font-bold mono text-white">{night.score}</p>
-          <ScoreBadge score={night.score} label={night.label} />
+          <p className="text-2xl font-bold mono text-white">{score}</p>
+          <ScoreBadge score={score} label={label} />
         </div>
       </div>
 
-      <ScoreBar score={night.score} />
+      <ScoreBar score={score} />
 
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div className="text-center">
@@ -126,14 +133,22 @@ function NightCard({ night }: { night: any }) {
         </div>
       </div>
 
-      {/* Lua — fase + tempo acima do horizonte na noite */}
-      <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5" title={night.moonLabel}>
-        <span className="text-sm leading-none">{night.moonEmoji}</span>
-        <span className="mono text-white/60">{night.moonIllumPct}%</span>
-        <span className="text-white/40">
-          {night.moonUpPct > 0 ? `lua ${night.moonUpPct}% da noite no céu` : 'lua abaixo do horizonte'}
-        </span>
-      </div>
+      {/* Linha contextual: Lua (DSO) ou seeing (planetária) */}
+      {mode === 'dso' ? (
+        <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5" title={night.moonLabel}>
+          <span className="text-sm leading-none">{night.moonEmoji}</span>
+          <span className="mono text-white/60">{night.moonIllumPct}%</span>
+          <span className="text-white/40">
+            {night.moonUpPct > 0 ? `lua ${night.moonUpPct}% da noite no céu` : 'lua abaixo do horizonte'}
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5" title="Seeing estimado pelo jet stream (250 hPa)">
+          <Telescope className="w-3 h-3 text-white/40" />
+          <span className="mono text-white/60">{night.seeingKmh} km/h</span>
+          <span className="text-white/40">seeing {night.seeingLabel.toLowerCase()}</span>
+        </div>
+      )}
 
       {night.hours?.length > 0 && (
         <>
@@ -160,6 +175,7 @@ export default function WeatherPage() {
   const [override, setOverride] = useState<{ lat: number; lon: number; name: string } | null>(null)
   const [gpsLoading, setGpsLoading] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [mode, setMode] = useState<Mode>('dso')
 
   const queryInput = override ? { latitude: override.lat, longitude: override.lon } : undefined
   const { data, isLoading, error } = api.weather.forecast.useQuery(queryInput)
@@ -291,23 +307,48 @@ export default function WeatherPage() {
         </div>
       )}
 
+      {/* Modo de score: céu profundo vs planetária */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg">
+          {([['dso', 'Céu profundo'], ['planetary', 'Planetária']] as const).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                mode === m ? 'bg-cosmos-500 text-white' : 'text-white/55 hover:text-white/70',
+              )}
+            >{label}</button>
+          ))}
+        </div>
+        <p className="text-[11px] text-white/40">
+          {mode === 'dso'
+            ? 'Penaliza a Lua (lava o céu profundo); seeing não importa.'
+            : 'Prioriza o seeing (jet stream); a Lua não importa pra alvos brilhantes.'}
+        </p>
+      </div>
+
       {/* Best night highlight */}
       {data?.nights && data.nights.length > 0 && (() => {
-        const best = [...data.nights].sort((a, b) => b.score - a.score)[0]
+        const best = [...data.nights].sort((a, b) => activeScore(b, mode) - activeScore(a, mode))[0]
         return (
           <div className="card p-5 mb-6 flex items-center justify-between">
             <div>
-              <p className="text-xs text-white/55 uppercase tracking-wider mb-1">Melhor noite</p>
+              <p className="text-xs text-white/55 uppercase tracking-wider mb-1">Melhor noite · {mode === 'dso' ? 'céu profundo' : 'planetária'}</p>
               <p className="text-lg font-semibold text-white capitalize">
                 {format(new Date(best.date + 'T12:00:00'), "EEEE, d 'de' MMM", { locale: ptBR })}
               </p>
               <p className="text-xs text-white/55 mt-0.5">
-                Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}% · Lua {best.moonEmoji} {best.moonIllumPct}%
+                Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}%
+                {mode === 'dso'
+                  ? ` · Lua ${best.moonEmoji} ${best.moonIllumPct}%`
+                  : ` · Seeing ${best.seeingLabel} (${best.seeingKmh} km/h)`}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold mono text-white">{best.score}</p>
-              <ScoreBadge score={best.score} label={best.label} />
+              <p className="text-3xl font-bold mono text-white">{activeScore(best, mode)}</p>
+              <ScoreBadge score={activeScore(best, mode)} label={activeLabel(best, mode)} />
             </div>
           </div>
         )
@@ -316,13 +357,13 @@ export default function WeatherPage() {
       {/* 7-night grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {data?.nights.map(night => (
-          <NightCard key={night.date} night={night} />
+          <NightCard key={night.date} night={night} mode={mode} />
         ))}
       </div>
 
       <p className="text-xs text-white/20 mt-6 text-center">
-        Dados: Open-Meteo + efeméride · Score penaliza nuvens (70%), vento (20%), chuva (30%) e a Lua
-        (iluminação × tempo acima do horizonte) das horas noturnas
+        Dados: Open-Meteo + efeméride · <strong className="text-white/30">Céu profundo</strong>: nuvem + vento + chuva + Lua ·
+        <strong className="text-white/30"> Planetária</strong>: troca a Lua pelo seeing (jet stream a 250 hPa)
       </p>
     </div>
   )
