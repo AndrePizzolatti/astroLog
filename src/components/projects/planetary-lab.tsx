@@ -75,7 +75,7 @@ export function PlanetaryLab({ open, onOpenChange, target }: Props) {
             </ul>
           </div>
           <div className="p-3 rounded-lg bg-white/3 border border-white/8">
-            <p className="text-[11px] uppercase tracking-wider text-white/40 mb-2 flex items-center gap-1.5">
+            <p className="text-[11px] uppercase tracking-wider text-white/55 mb-2 flex items-center gap-1.5">
               <Trash2 className="w-3.5 h-3.5" /> Pode descartar
             </p>
             <ul className="space-y-1.5">
@@ -84,7 +84,7 @@ export function PlanetaryLab({ open, onOpenChange, target }: Props) {
           </div>
         </div>
 
-        <p className="text-[11px] text-white/40 leading-relaxed">
+        <p className="text-[11px] text-white/55 leading-relaxed">
           Fluxo manual: <strong className="text-white/60">AutoStakkert!</strong> (empilha) →
           <strong className="text-white/60"> RegiStax/AstroSurface</strong> (wavelets) →
           <strong className="text-white/60"> WinJUPOS</strong> (derotação). O app não processa vídeo —
@@ -94,7 +94,7 @@ export function PlanetaryLab({ open, onOpenChange, target }: Props) {
         {/* Script preview */}
         <div className="rounded-xl border border-white/8 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-1.5 bg-white/3">
-            <span className="text-[10px] uppercase tracking-wider text-white/35">planetaria_{fileBase}.ps1</span>
+            <span className="text-[10px] uppercase tracking-wider text-white/50">planetaria_{fileBase}.ps1</span>
             <button type="button" onClick={() => copy(script, 'script')} className="btn-ghost flex items-center gap-1 text-[11px] text-white/50 hover:text-white/80">
               {copied === 'script' ? <><Check className="w-3 h-3 text-aurora-400" /> Copiado</> : <><Copy className="w-3 h-3" /> Copiar</>}
             </button>
@@ -109,7 +109,7 @@ export function PlanetaryLab({ open, onOpenChange, target }: Props) {
 
         {/* Exemplos de uso */}
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-white/35 flex items-center gap-1.5">
+          <p className="text-[11px] uppercase tracking-wider text-white/50 flex items-center gap-1.5">
             <UploadCloud className="w-3.5 h-3.5" /> Como usar
           </p>
           {examples.map((ex, i) => (
@@ -117,7 +117,7 @@ export function PlanetaryLab({ open, onOpenChange, target }: Props) {
               <p className="text-[11px] text-white/45 mb-1">{ex.label}</p>
               <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2.5 py-1.5">
                 <code className="text-[10px] mono text-white/60 flex-1 overflow-x-auto whitespace-pre">{ex.cmd}</code>
-                <button type="button" onClick={() => copy(ex.cmd, `ex${i}`)} className="btn-ghost text-white/40 hover:text-white/70 shrink-0">
+                <button type="button" onClick={() => copy(ex.cmd, `ex${i}`)} className="btn-ghost text-white/55 hover:text-white/70 shrink-0">
                   {copied === `ex${i}` ? <Check className="w-3.5 h-3.5 text-aurora-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>

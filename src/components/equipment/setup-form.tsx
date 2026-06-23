@@ -178,15 +178,15 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
           {/* Painel de óptica calculada — aparece ao selecionar telescópio + câmera */}
           {optics && (
             <div className="col-span-2 space-y-2">
-              <p className="text-[10px] text-white/35 uppercase tracking-wider">Parâmetros do conjunto</p>
+              <p className="text-[10px] text-white/50 uppercase tracking-wider">Parâmetros do conjunto</p>
               <div className="grid grid-cols-4 gap-2">
                 <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Escala</p>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Escala</p>
                   <p className="text-sm font-mono font-medium text-white/80">{optics.plateScaleArcsecPx}"</p>
                   <p className="text-[10px] text-white/30">arcsec/px</p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">f/ratio</p>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">f/ratio</p>
                   <p className="text-sm font-mono font-medium text-white/80">f/{optics.focalRatio}</p>
                   {Number(watchEffectiveFocal) > 0 && selectedTelescope && (
                     <p className="text-[10px] text-white/30">
@@ -195,7 +195,7 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
                   )}
                 </div>
                 <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">FoV</p>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">FoV</p>
                   <p className="text-sm font-mono font-medium text-white/80">
                     {optics.fovWidthArcmin}′
                   </p>
@@ -207,7 +207,7 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
                   optics.sampling === 'undersampled'  && 'bg-amber-400/8 border-amber-400/20',
                   optics.sampling === 'oversampled'   && 'bg-blue-400/8 border-blue-400/20',
                 )}>
-                  <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Amostragem</p>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Amostragem</p>
                   <p className={cn(
                     'text-xs font-medium',
                     optics.sampling === 'optimal'       && 'text-aurora-300',
@@ -228,7 +228,7 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
               {FILTERS.map(f => (
                 <button key={f} type="button" onClick={() => toggleFilter(f)}
                   className={cn('filter-pill transition-opacity',
-                    selectedFilters.includes(f) ? filterPillClass(f) : 'opacity-30 bg-white/5 text-white/40')}>
+                    selectedFilters.includes(f) ? filterPillClass(f) : 'opacity-30 bg-white/5 text-white/55')}>
                   {f}
                 </button>
               ))}
@@ -248,7 +248,7 @@ export function SetupForm({ open, onOpenChange, initial }: Props) {
                         'px-2 py-0.5 rounded text-xs font-medium border transition-opacity',
                         selected
                           ? 'bg-cosmos-500/20 text-cosmos-300 border-cosmos-500/40'
-                          : 'opacity-30 bg-white/5 text-white/40 border-white/10',
+                          : 'opacity-30 bg-white/5 text-white/55 border-white/10',
                       )}>
                       {a.name}
                     </button>

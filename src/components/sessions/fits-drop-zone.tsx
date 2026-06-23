@@ -125,7 +125,7 @@ export function FITSDropZone({ onParsed }: Props) {
   if (state.status === 'loading') {
     return (
       <div className="flex items-center gap-3 p-3 rounded-lg bg-white/3 border border-white/10">
-        <Loader2 className="w-4 h-4 text-white/40 animate-spin shrink-0" />
+        <Loader2 className="w-4 h-4 text-white/55 animate-spin shrink-0" />
         <p className="text-xs text-white/50 truncate">Lendo header de {state.name}…</p>
       </div>
     )
@@ -147,7 +147,7 @@ export function FITSDropZone({ onParsed }: Props) {
     >
       <FileImage className={cn('w-4 h-4 shrink-0', dragging ? 'text-aurora-400' : 'text-white/25')} />
       <div>
-        <p className={cn('text-xs', dragging ? 'text-aurora-300' : 'text-white/40')}>
+        <p className={cn('text-xs', dragging ? 'text-aurora-300' : 'text-white/55')}>
           Arraste um frame FITS ou XISF para preencher automaticamente
         </p>
         <p className="text-[10px] text-white/20 mt-0.5">.fits · .fit · .fts · .xisf — lido localmente, sem upload</p>

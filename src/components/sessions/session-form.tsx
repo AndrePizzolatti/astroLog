@@ -347,7 +347,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
               const d = observedAt ? new Date(observedAt) : null
               if (!d || isNaN(d.getTime())) return null
               const moon = getMoonPhase(d)
-              const dimCls = moon.illumination > 50 ? 'text-amber-300/80' : 'text-white/35'
+              const dimCls = moon.illumination > 50 ? 'text-amber-300/80' : 'text-white/50'
               return (
                 <p className={cn('text-[11px] mt-1.5 flex items-center gap-1.5', dimCls)}>
                   <span>{moon.emoji}</span>
@@ -381,7 +381,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
 
         {/* Capture */}
         <div>
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Parâmetros de captura</p>
+          <p className="text-xs text-white/55 uppercase tracking-wider mb-3">Parâmetros de captura</p>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-3">
               <label className="input-label">Filtro</label>
@@ -394,7 +394,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
                     className={`px-2 py-0.5 rounded text-xs font-mono font-bold border transition-opacity ${
                       (f === '' && !selectedFilter) || selectedFilter === f
                         ? f ? `filter-${f}` : 'bg-white/10 text-white/60 border-white/20'
-                        : 'opacity-30 bg-white/5 text-white/40 border-white/10'
+                        : 'opacity-30 bg-white/5 text-white/55 border-white/10'
                     }`}
                   >
                     {f || 'Sem filtro'}
@@ -449,7 +449,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
         {/* Calibration library matches */}
         {hasMatchCriteria && (
           <div>
-            <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Calibrações compatíveis</p>
+            <p className="text-xs text-white/55 uppercase tracking-wider mb-3">Calibrações compatíveis</p>
             {!calibMatches?.length ? (
               <p className="text-xs text-white/25 italic">
                 Nenhum frame compatível na biblioteca para este setup/gain.
@@ -509,7 +509,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
         {/* Conditions */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs text-white/40 uppercase tracking-wider">Condições atmosféricas</p>
+            <p className="text-xs text-white/55 uppercase tracking-wider">Condições atmosféricas</p>
             {weatherFilled && (
               <span className="flex items-center gap-1 text-[10px] text-aurora-400/70">
                 <CloudSun className="w-3 h-3" /> Preenchido via Open-Meteo

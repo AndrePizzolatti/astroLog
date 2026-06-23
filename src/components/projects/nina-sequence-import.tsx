@@ -183,7 +183,7 @@ export function NINASequenceImport({ open, onOpenChange }: Props) {
 
       {state.status === 'review' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-white/35 truncate flex items-center gap-1.5">
+          <p className="text-[11px] text-white/50 truncate flex items-center gap-1.5">
             <FileJson className="w-3 h-3 shrink-0" /> {state.fileName}
           </p>
 
@@ -206,7 +206,7 @@ export function NINASequenceImport({ open, onOpenChange }: Props) {
                   <Telescope className="w-3.5 h-3.5 text-cosmos-400 shrink-0" />
                   <span className="text-sm font-medium text-white">{t.name}</span>
                   {raToText(t.ra) && (
-                    <span className="text-[10px] mono text-white/35">{raToText(t.ra)} · {decToText(t.dec)}</span>
+                    <span className="text-[10px] mono text-white/50">{raToText(t.ra)} · {decToText(t.dec)}</span>
                   )}
                   <span className="ml-auto text-[11px] mono text-aurora-300">{formatIntegration(totalIntegrationMin(t))}</span>
                 </div>
@@ -215,7 +215,7 @@ export function NINASequenceImport({ open, onOpenChange }: Props) {
                     <span key={j} className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/4 border border-white/8 text-[10px]">
                       {e.filter
                         ? <span className={cn('px-1 rounded font-mono font-bold', filterPillClass(e.filter))}>{e.filter}</span>
-                        : <span className="text-white/40">—</span>}
+                        : <span className="text-white/55">—</span>}
                       <span className="mono text-white/60">{e.count}× {e.exposureSeconds}s</span>
                       {e.gain != null && <span className="mono text-white/30">G{e.gain}</span>}
                     </span>

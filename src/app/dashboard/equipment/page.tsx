@@ -132,7 +132,7 @@ function SetupCard({ setup, onEdit, onDelete }: { setup: any; onEdit: () => void
             <h3 className="font-semibold text-white">{setup.name}</h3>
             {setup.isDefault && <span className="badge bg-cosmos-500/20 text-cosmos-300">padrão</span>}
           </div>
-          <p className="text-xs text-white/40 mt-0.5">
+          <p className="text-xs text-white/55 mt-0.5">
             {setup._count.projects} projeto{setup._count.projects !== 1 ? 's' : ''}
           </p>
         </div>
@@ -224,10 +224,10 @@ function TelescopesTab() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{t.name}</h3>
-                    {t.brand && <p className="text-xs text-white/40">{t.brand} {t.model}</p>}
+                    {t.brand && <p className="text-xs text-white/55">{t.brand} {t.model}</p>}
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="badge bg-white/5 text-white/40 mr-1">{t.opticalDesign ?? 'Telescópio'}</span>
+                    <span className="badge bg-white/5 text-white/55 mr-1">{t.opticalDesign ?? 'Telescópio'}</span>
                     <button onClick={() => { setEditing(t); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -285,10 +285,10 @@ function CamerasTab() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{c.name}</h3>
-                    {c.brand && <p className="text-xs text-white/40">{c.brand} {c.model}</p>}
+                    {c.brand && <p className="text-xs text-white/55">{c.brand} {c.model}</p>}
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="badge bg-white/5 text-white/40">{c.colorType}</span>
+                    <span className="badge bg-white/5 text-white/55">{c.colorType}</span>
                     {c.cooled && <span className="badge bg-blue-500/20 text-blue-300 ml-1">TEC</span>}
                     <button onClick={() => { setEditing(c); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
                       <Pencil className="w-3.5 h-3.5" />
@@ -350,7 +350,7 @@ function MountsTab() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{m.name}</h3>
-                    {m.brand && <p className="text-xs text-white/40">{m.brand} {m.model}</p>}
+                    {m.brand && <p className="text-xs text-white/55">{m.brand} {m.model}</p>}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => { setEditing(m); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
@@ -410,10 +410,10 @@ function AccessoriesTab() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{a.name}</h3>
-                    {a.brand && <p className="text-xs text-white/40">{a.brand} {a.model}</p>}
+                    {a.brand && <p className="text-xs text-white/55">{a.brand} {a.model}</p>}
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="badge bg-white/5 text-white/40 mr-1 text-[10px]">
+                    <span className="badge bg-white/5 text-white/55 mr-1 text-[10px]">
                       {ACCESSORY_TYPE_LABELS[a.type] ?? a.type}
                     </span>
                     <button onClick={() => { setEditing(a); setOpen(true) }} className="btn-ghost p-1.5 text-white/30 hover:text-white/70">
@@ -485,7 +485,7 @@ function CameraCalibHealth({ cameraId }: { cameraId: string }) {
               'text-[10px] font-medium px-1.5 py-0.5 rounded border',
               expired ? 'bg-red-500/15 text-red-300 border-red-500/25' :
               soon    ? 'bg-amber-500/15 text-amber-300 border-amber-500/25' :
-                        'bg-white/5 text-white/35 border-white/10',
+                        'bg-white/5 text-white/50 border-white/10',
             )}>
               {CALIB_SHORT[t]}{expired ? ' !' : soon ? ` ${days}d` : ''}
             </span>

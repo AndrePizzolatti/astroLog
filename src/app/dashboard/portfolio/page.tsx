@@ -53,7 +53,7 @@ export default function PortfolioPage() {
       ) : !items?.length ? (
         <div className="card p-16 flex flex-col items-center text-center gap-3">
           <Images className="w-12 h-12 text-white/10" />
-          <h3 className="font-medium text-white/40">Nenhum projeto ainda</h3>
+          <h3 className="font-medium text-white/55">Nenhum projeto ainda</h3>
           <p className="text-sm text-white/25 max-w-xs">Crie projetos e vincule a imagem final pra montar seu portfólio.</p>
         </div>
       ) : (
@@ -71,7 +71,7 @@ export default function PortfolioPage() {
                         {PROJECT_STATUS_LABELS[p.status]}
                       </span>
                     </div>
-                    <p className="text-xs text-white/40 truncate mt-0.5">{p.targetObject}</p>
+                    <p className="text-xs text-white/55 truncate mt-0.5">{p.targetObject}</p>
                     <p className="text-[11px] text-white/30 mono mt-1 flex items-center gap-1">
                       <Clock className="w-3 h-3" /> {formatIntegration(p.totalIntegrationMinutes)} · {p.totalLights} lights
                     </p>
@@ -93,7 +93,7 @@ export default function PortfolioPage() {
                 ))}
               </div>
               <p className="text-[11px] text-white/25 mt-2">
-                Vincule a imagem final (Drive) em <span className="text-white/40">Arquivos &amp; Links</span> do projeto pra ela aparecer aqui.
+                Vincule a imagem final (Drive) em <span className="text-white/55">Arquivos &amp; Links</span> do projeto pra ela aparecer aqui.
               </p>
             </div>
           )}

@@ -18,7 +18,7 @@ export function TechSheet({ projectId }: Props) {
 
   return (
     <div className="card p-5 space-y-4">
-      <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider">Ficha Técnica</h3>
+      <h3 className="text-xs font-medium text-white/55 uppercase tracking-wider">Ficha Técnica</h3>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatBox icon={Camera} label="Total lights" value={String(stats.totalLights)} />

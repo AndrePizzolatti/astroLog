@@ -35,7 +35,7 @@ function LoginCard() {
         <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'var(--font-syne)' }}>
           AstroLog
         </h1>
-        <p className="text-white/40 text-sm mt-1">Seu diário de astrofotografia</p>
+        <p className="text-white/55 text-sm mt-1">Seu diário de astrofotografia</p>
       </div>
 
       {/* Error banner */}
@@ -47,7 +47,7 @@ function LoginCard() {
 
       {/* Sign-in card */}
       <div className="card p-6 space-y-3">
-        <p className="text-xs text-white/40 text-center uppercase tracking-wider mb-4">
+        <p className="text-xs text-white/55 text-center uppercase tracking-wider mb-4">
           Entrar com
         </p>
 

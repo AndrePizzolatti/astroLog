@@ -19,9 +19,9 @@ const config: Config = {
           400: '#7c6ff5',
           300: '#a29bff',
         },
-        nebula: { 400: '#f472b6' },
-        star:   { 400: '#fbbf24' },
-        aurora: { 400: '#34d399' },
+        nebula: { 300: '#f9a8d4', 400: '#f472b6', 500: '#ec4899' },
+        star:   { 300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b' },
+        aurora: { 300: '#6ee7b7', 400: '#34d399', 500: '#10b981' },
       },
       fontFamily: {
         syne:  ['var(--font-syne)', 'sans-serif'],

@@ -123,7 +123,7 @@ export default async function LandingPage() {
         >
           Pronto para organizar suas noites de captura?
         </h2>
-        <p className="text-white/40 mb-8">
+        <p className="text-white/55 mb-8">
           Login com Google ou GitHub. Sem cadastro manual.
         </p>
         <Link href="/login" className="btn-primary inline-flex items-center gap-2 text-base px-6 py-3">
@@ -159,7 +159,7 @@ function FeatureCard({
       <h3 className="text-sm font-semibold text-white" style={{ fontFamily: 'var(--font-syne)' }}>
         {title}
       </h3>
-      <p className="text-xs text-white/40 leading-relaxed">{description}</p>
+      <p className="text-xs text-white/55 leading-relaxed">{description}</p>
     </div>
   )
 }

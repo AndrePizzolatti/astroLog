@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               : <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
             <Toast.Description className="flex-1">{item.message}</Toast.Description>
             <Toast.Close>
-              <X className="w-3.5 h-3.5 text-white/40 hover:text-white" />
+              <X className="w-3.5 h-3.5 text-white/55 hover:text-white" />
             </Toast.Close>
           </Toast.Root>
         ))}

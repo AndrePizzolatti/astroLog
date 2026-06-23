@@ -133,11 +133,11 @@ export function TelescopeForm({ open, onOpenChange, initial, prefill }: Props) {
           {canCompute && (
             <div className="col-span-2 grid grid-cols-2 gap-2">
               <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Razão Focal</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Razão Focal</p>
                 <p className="text-sm font-mono font-medium text-white/80">f/{(fl / ap).toFixed(1)}</p>
               </div>
               <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Limite de Dawes</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Limite de Dawes</p>
                 <p className="text-sm font-mono font-medium text-white/80">{(116 / ap).toFixed(2)}"</p>
               </div>
             </div>

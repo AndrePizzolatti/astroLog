@@ -137,7 +137,7 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
               const d = observedAt ? new Date(observedAt) : null
               if (!d || isNaN(d.getTime())) return null
               const m = getMoonPhase(d)
-              return <p className="text-[11px] text-white/35 mt-1.5">{m.emoji} {m.label} · {m.illumination}%</p>
+              return <p className="text-[11px] text-white/50 mt-1.5">{m.emoji} {m.label} · {m.illumination}%</p>
             })()}
           </div>
           <div className="col-span-2">
@@ -152,13 +152,13 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
         {/* Import automático de metadados */}
         <div className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-white/10 bg-white/2">
           <FileUp className="w-4 h-4 text-white/30 shrink-0" />
-          <p className="text-[11px] text-white/40 flex-1">Importe um <strong className="text-white/60">.ser</strong> ou o <strong className="text-white/60">log .txt do FireCapture</strong> pra preencher automaticamente</p>
+          <p className="text-[11px] text-white/55 flex-1">Importe um <strong className="text-white/60">.ser</strong> ou o <strong className="text-white/60">log .txt do FireCapture</strong> pra preencher automaticamente</p>
           <input ref={metaRef} type="file" accept=".ser,.txt,.log" className="hidden" onChange={onMetaFile} />
           <button type="button" className="btn-secondary text-xs shrink-0" onClick={() => metaRef.current?.click()}>Importar</button>
         </div>
 
         <div>
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Captura</p>
+          <p className="text-xs text-white/55 uppercase tracking-wider mb-3">Captura</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="input-label">Software</label>

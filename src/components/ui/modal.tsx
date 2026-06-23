@@ -30,7 +30,7 @@ export function Modal({ open, onOpenChange, title, description, children, classN
             <div>
               <Dialog.Title className="text-base font-semibold text-white">{title}</Dialog.Title>
               {description && (
-                <Dialog.Description className="text-xs text-white/40 mt-0.5">{description}</Dialog.Description>
+                <Dialog.Description className="text-xs text-white/55 mt-0.5">{description}</Dialog.Description>
               )}
             </div>
             <Dialog.Close asChild>

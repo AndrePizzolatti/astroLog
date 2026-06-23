@@ -70,7 +70,7 @@ function HourlyDetail({ hours }: { hours: HourEntry[] }) {
                 style={{ width: `${h.cloud}%` }}
               />
             </div>
-            <span className="w-8 text-right text-white/40 mono shrink-0">{h.cloud}%</span>
+            <span className="w-8 text-right text-white/55 mono shrink-0">{h.cloud}%</span>
             <span className="w-10 text-right text-white/25 mono shrink-0">{h.wind.toFixed(0)}km/h</span>
             {h.precip > 10 && (
               <span className="text-blue-400/70 mono shrink-0">{h.precip}%</span>
@@ -236,7 +236,7 @@ export default function WeatherPage() {
             <button
               onClick={handleGPS}
               disabled={gpsLoading}
-              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-aurora-400 transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 text-xs text-white/55 hover:text-aurora-400 transition-colors disabled:opacity-40"
             >
               <LocateFixed className="w-3.5 h-3.5" />
               {gpsLoading ? 'Obtendo…' : 'GPS'}
@@ -245,7 +245,7 @@ export default function WeatherPage() {
               onClick={() => setShowSearch(v => !v)}
               className={cn(
                 'flex items-center gap-1.5 text-xs transition-colors',
-                showSearch ? 'text-aurora-400' : 'text-white/40 hover:text-white/70',
+                showSearch ? 'text-aurora-400' : 'text-white/55 hover:text-white/70',
               )}
             >
               <MapPin className="w-3.5 h-3.5" />
@@ -288,11 +288,11 @@ export default function WeatherPage() {
         return (
           <div className="card p-5 mb-6 flex items-center justify-between">
             <div>
-              <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Melhor noite</p>
+              <p className="text-xs text-white/55 uppercase tracking-wider mb-1">Melhor noite</p>
               <p className="text-lg font-semibold text-white capitalize">
                 {format(new Date(best.date + 'T12:00:00'), "EEEE, d 'de' MMM", { locale: ptBR })}
               </p>
-              <p className="text-xs text-white/40 mt-0.5">
+              <p className="text-xs text-white/55 mt-0.5">
                 Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}%
               </p>
             </div>

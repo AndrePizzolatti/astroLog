@@ -54,7 +54,7 @@ export default function ProjectDetailPage() {
   )
 
   if (!project) return (
-    <div className="p-8 text-white/40">Projeto não encontrado.</div>
+    <div className="p-8 text-white/55">Projeto não encontrado.</div>
   )
 
   const sessions = project.imagingSessions ?? []
@@ -181,7 +181,7 @@ export default function ProjectDetailPage() {
         {!sessions.length ? (
           <div className="card p-10 flex flex-col items-center text-center gap-3">
             <Clock className="w-8 h-8 text-white/10" />
-            <h3 className="font-medium text-white/40">Nenhuma sessão registrada</h3>
+            <h3 className="font-medium text-white/55">Nenhuma sessão registrada</h3>
             <p className="text-xs text-white/25 max-w-xs">Registre sua primeira noite de captura para este projeto.</p>
             <button className="btn-primary flex items-center gap-2 text-xs mt-2" onClick={() => setAddSession(true)}>
               <Plus className="w-3.5 h-3.5" /> Nova Sessão

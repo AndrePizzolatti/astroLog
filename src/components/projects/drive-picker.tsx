@@ -136,7 +136,7 @@ export function DrivePicker({ projectId, open, onOpenChange }: Props) {
 
           {/* Breadcrumb (só no modo navegação) */}
           {!search && (
-            <div className="flex items-center gap-1 text-xs text-white/40 flex-wrap">
+            <div className="flex items-center gap-1 text-xs text-white/55 flex-wrap">
               {stack.map((s, i) => (
                 <span key={i} className="flex items-center gap-1">
                   {i > 0 && <ChevronRight className="w-3 h-3 text-white/20" />}
@@ -171,7 +171,7 @@ export function DrivePicker({ projectId, open, onOpenChange }: Props) {
                       >
                         {checked && <Check className="w-2.5 h-2.5 text-cosmos-950" />}
                       </button>
-                      <Icon className={cn('w-4 h-4 shrink-0', item.isFolder ? 'text-cosmos-400' : 'text-white/40')} />
+                      <Icon className={cn('w-4 h-4 shrink-0', item.isFolder ? 'text-cosmos-400' : 'text-white/55')} />
                       {item.isFolder && !search ? (
                         <button onClick={() => openFolder(item.id, item.name)} className="flex-1 min-w-0 text-left text-sm text-white/80 truncate hover:text-white">
                           {item.name}
@@ -188,7 +188,7 @@ export function DrivePicker({ projectId, open, onOpenChange }: Props) {
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-white/40">{picked.size} selecionado(s)</span>
+            <span className="text-xs text-white/55">{picked.size} selecionado(s)</span>
             <div className="flex gap-2">
               <button className="btn-secondary" onClick={() => onOpenChange(false)}>Cancelar</button>
               <button className="btn-primary" disabled={picked.size === 0 || submitting} onClick={confirm}>

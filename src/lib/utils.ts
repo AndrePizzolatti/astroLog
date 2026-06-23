@@ -137,5 +137,5 @@ export const PROJECT_STATUS_COLORS: Record<string, string> = {
   READY_TO_PROCESS: 'bg-purple-500/20 text-purple-300',
   PROCESSING:       'bg-cosmos-500/20 text-cosmos-300',
   COMPLETED:        'bg-aurora-400/20 text-aurora-400',
-  ARCHIVED:         'bg-white/10 text-white/40',
+  ARCHIVED:         'bg-white/10 text-white/55',
 }

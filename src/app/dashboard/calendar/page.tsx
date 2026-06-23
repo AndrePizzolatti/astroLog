@@ -71,7 +71,7 @@ export default function CalendarPage() {
           <h1 className="page-title">Calendário Astronômico</h1>
           <p className="page-subtitle">Eventos do mês e visibilidade dos planetas por noite</p>
         </div>
-        <div className="text-xs text-white/35 flex items-center gap-1.5 self-center">
+        <div className="text-xs text-white/50 flex items-center gap-1.5 self-center">
           <MapPin className="w-3.5 h-3.5" /> {lat.toFixed(2)}, {lon.toFixed(2)}
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function CalendarPage() {
         <div className="space-y-4">
           <div className="card p-4">
             <h3 className="text-sm font-semibold text-white">{format(selected, "EEEE, d 'de' MMMM", { locale: ptBR })}</h3>
-            <p className="text-xs text-white/40 mt-0.5 flex items-center gap-1.5">
+            <p className="text-xs text-white/55 mt-0.5 flex items-center gap-1.5">
               <span>{selMoon.emoji}</span> {selMoon.label} · {selMoon.illumination}% iluminada
             </p>
 
@@ -175,7 +175,7 @@ export default function CalendarPage() {
               return (
                 <button key={i} onClick={() => setSelected(new Date(e.date + 'T12:00:00'))}
                   className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 text-left">
-                  <span className="text-xs text-white/40 mono w-12 shrink-0">{format(new Date(e.date + 'T12:00:00'), 'dd/MM')}</span>
+                  <span className="text-xs text-white/55 mono w-12 shrink-0">{format(new Date(e.date + 'T12:00:00'), 'dd/MM')}</span>
                   <Icon className="w-3.5 h-3.5 text-cosmos-300 shrink-0" />
                   <span className="text-sm text-white/80 flex-1 truncate">{e.name}</span>
                   {e.note && <span className="text-[11px] text-white/30 truncate hidden sm:block">{e.note}</span>}

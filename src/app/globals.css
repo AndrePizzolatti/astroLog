@@ -43,7 +43,7 @@ html, body {
   }
 
   .input {
-    @apply bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-cosmos-400 focus:border-cosmos-400/50 transition-colors duration-150 w-full;
+    @apply bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-cosmos-400 focus:border-cosmos-400/50 transition-colors duration-150 w-full;
     color-scheme: dark;
   }
   .input option {
@@ -97,7 +97,7 @@ html, body {
     font-family: var(--font-syne), sans-serif;
   }
   .page-subtitle {
-    @apply text-sm text-white/40 mt-1;
+    @apply text-sm text-white/55 mt-1;
   }
   .equipment-grid {
     @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
