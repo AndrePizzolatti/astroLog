@@ -59,13 +59,14 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [x] **Import de metadados** — lê `.ser` (frames/ROI/data/instrumento) e log `.txt` do FireCapture
       (fps/exposição/gain/ROI) e preenche a sessão.
 - [x] **Brilho máximo de Vênus** como evento (`SearchPeakMagnitude`).
-- **Gestão de arquivos planetários (orientação, não é feature):** o app é índice — não processa
-      vídeo. Processamento local: AutoStakkert! → RegiStax/AstroSurface → WinJUPOS. Guardar: os
-      melhores SER/AVI + o TIFF empilhado do AS! + o final; apagar SERs de seeing ruim e
-      intermediários. SER é enorme → deixar brutos no disco local/externo (registrar o caminho em
-      Arquivos & Links) e mandar só empilhado+final pro Drive.
-- [ ] Evoluções: derotação (WinJUPOS), métricas agregadas planetárias no projeto, e um helper de
-      arquivamento planetário (limpar intermediários do AS!/RegiStax, manter melhores SERs).
+- [x] **Gestão de arquivos planetários** — FEITO. Botão "Arquivos" no projeto planetário abre o
+      `PlanetaryLab`, que gera um script PowerShell (`lib/planetary-files.ts`): inventaria os vídeos
+      com tamanho, `-Clean` move intermediários (`_conv.ser/.avi`, `.tmp`) pra lixeira local,
+      `-Archive` move os brutos pro SSD/externo (preserva, libera disco) e `-Publish` copia os finais
+      pra pasta do Drive. Dry-run por padrão; NUNCA apaga brutos nem imagens finais. Guia keep/descartar
+      e exemplos no modal. (Fluxo manual continua: AutoStakkert! → RegiStax/AstroSurface → WinJUPOS.)
+- [ ] Evoluções: derotação (WinJUPOS), métricas agregadas planetárias no projeto, e seleção
+      automática dos "melhores SERs" por qualidade (hoje a escolha de seeing é manual).
 
 ## Visual / portfólio
 - [x] **Portfólio/galeria** — feito (`/dashboard/portfolio`), usa o thumbnail do Drive derivado do
@@ -95,4 +96,5 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - Import de pasta FITS + sequência N.I.N.A.; equipamento via header; Siril Lab (script + limpeza + SHO/PixelMath);
   agente local (processa/limpa/arquiva, multi-noite dinâmico); armazenamento Local/Drive; auto-link da biblioteca;
   motor de alertas (eventos no app); autocomplete de alvo + AR/Dec via SIMBAD/Sésame;
-  import de metadados planetários (SER/FireCapture) + brilho de Vênus; **alertas por e-mail (Resend) + cron diário**.
+  import de metadados planetários (SER/FireCapture) + brilho de Vênus; alertas por e-mail (Resend) + cron diário;
+  **gestão de arquivos planetários (script PowerShell: inventário/limpeza/arquivamento/publicação)**.

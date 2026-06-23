@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Telescope, Camera, Clock, Trash2, Pencil, FolderUp, FlaskConical } from 'lucide-react'
+import { ArrowLeft, Plus, Telescope, Camera, Clock, Trash2, Pencil, FolderUp, FlaskConical, Film } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn, formatIntegration, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/lib/utils'
 import { SessionCard }  from '@/components/sessions/session-card'
@@ -10,6 +10,7 @@ import { SessionForm }  from '@/components/sessions/session-form'
 import { PlanetarySessionForm } from '@/components/sessions/planetary-session-form'
 import { BulkFITSImport } from '@/components/sessions/bulk-fits-import'
 import { SirilLab }      from '@/components/projects/siril-lab'
+import { PlanetaryLab } from '@/components/projects/planetary-lab'
 import { TechSheet }    from '@/components/projects/tech-sheet'
 import { ProjectLinks } from '@/components/projects/project-files'
 import { ProjectForm, type ProjectInitial } from '@/components/projects/project-form'
@@ -29,6 +30,7 @@ export default function ProjectDetailPage() {
   const [addSession,      setAddSession]      = useState(false)
   const [bulkImport,      setBulkImport]      = useState(false)
   const [sirilOpen,       setSirilOpen]       = useState(false)
+  const [planetaryOpen,   setPlanetaryOpen]   = useState(false)
   const [editProjectOpen, setEditProjectOpen] = useState(false)
   const [editingSession,  setEditingSession]  = useState<any | null>(null)
   const [cloningSession,  setCloningSession]  = useState<any | null>(null)
@@ -108,9 +110,13 @@ export default function ProjectDetailPage() {
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
-            {!isPlanetary && (
+            {!isPlanetary ? (
               <button onClick={() => setSirilOpen(true)} className="btn-secondary flex items-center gap-1.5">
                 <FlaskConical className="w-3.5 h-3.5" /> Siril
+              </button>
+            ) : (
+              <button onClick={() => setPlanetaryOpen(true)} className="btn-secondary flex items-center gap-1.5">
+                <Film className="w-3.5 h-3.5" /> Arquivos
               </button>
             )}
             <button onClick={() => setEditProjectOpen(true)} className="btn-secondary flex items-center gap-1.5">
@@ -205,6 +211,7 @@ export default function ProjectDetailPage() {
             onOpenChange={v => { if (!v) setEditingSession(null) }}
             initial={editingSession ?? undefined}
           />
+          <PlanetaryLab open={planetaryOpen} onOpenChange={setPlanetaryOpen} target={project.targetObject} />
         </>
       ) : (
         <>
