@@ -10,7 +10,8 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 1. [x] **Efeméride + Planejador de sessão** — FEITO. `astronomy-engine` em `src/lib/sky.ts`;
    `/dashboard/planner` com curva de altitude, trânsito, horas visíveis, Lua (iluminação/separação),
    ranking dos projetos e **catálogo DSO offline + sugestões "bons alvos pra esta noite"** (ranqueia o
-   catálogo pela altitude/horas/distância da Lua). (Falta: FOV do setup sobre o alvo.)
+   catálogo pela altitude/horas/distância da Lua) e **enquadramento** (FOV do setup desenhado sobre o
+   alvo em escala, com veredito cabe/mosaico).
 2. [x] **Calendário astronômico** — FEITO. `/dashboard/calendar`: grade do mês (fase da Lua +
    eventos), painel do dia (eventos + visibilidade dos planetas com janela de/até e altitude máx),
    lista de eventos do mês. `planetVisibility` em `sky.ts`.
@@ -44,9 +45,12 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [ ] Filtrar eclipses por **visibilidade na localização** do usuário (hoje só mostra a data + região geral).
 - [ ] Manter a tabela curada de eclipses/oposições atualizada (`src/lib/astro-events.ts`).
 
-## Planejador de sessão (não construído)
-- [ ] Cruzar previsão + equipamento + alvos: curva de **altitude** na noite, **separação da Lua**,
-      **FOV** do setup sobre o alvo, e recomendação de exposição/integração.
+## Planejador de sessão — FEITO (núcleo)
+- [x] Curva de **altitude** na noite, **separação da Lua**, ranking, catálogo+sugestões, e **FOV do
+      setup sobre o alvo** (diagrama em escala + veredito). Reusa `setups.list` (focal/pixel/sensor) e
+      `sizeArcmin` do catálogo (casamento por nome pra projetos/custom).
+- [ ] Evoluções: recomendação de **exposição/integração**; FOV com a **rotação** da câmera; reducer/barlow
+      mudando a focal; eixo maior/menor do alvo (elipse, não círculo); cruzar com o **score de céu**.
 
 ## Calendário astronômico — FEITO
 - [x] `/dashboard/calendar`: grade do mês (fase da Lua + eventos), painel do dia (eventos +

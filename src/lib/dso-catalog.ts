@@ -16,6 +16,7 @@ export interface DSOObject {
   decDeg:  number
   mag?:    number
   note?:   string     // dica curta (estação, alvo de banda estreita…)
+  sizeArcmin?: number // maior dimensão angular aproximada (pra enquadramento)
 }
 
 export const DSO_CATALOG: DSOObject[] = [
@@ -92,6 +93,28 @@ export const DSO_CATALOG: DSOObject[] = [
   { id: 'ngc2997', name: 'NGC 2997', common: 'Galáxia NGC 2997',       type: 'Galáxia', raHours: 9.76, decDeg: -31.19, mag: 9.5 },
   { id: 'ngc1097', name: 'NGC 1097', common: 'Galáxia NGC 1097',       type: 'Galáxia', raHours: 2.77, decDeg: -30.27, mag: 9.5 },
 ]
+
+// Tamanho angular aproximado (maior dimensão, arcmin) — pra desenhar o alvo em escala
+// no enquadramento. Valores de planejamento (catálogos divergem um pouco).
+const DSO_SIZES: Record<string, number> = {
+  m42: 85, m45: 110, m31: 190, m33: 70, m1: 6, m8: 90, m20: 28, m16: 35, m17: 20, m27: 8,
+  m57: 1.5, m51: 11, m63: 12, m64: 10, m81: 27, m82: 11, m101: 29, m104: 9, m83: 13, m106: 19,
+  m13: 20, m22: 32, m4: 36, m6: 25, m7: 80, m44: 95, m3: 18,
+  ngc7000: 120, ic5070: 60, ngc6992: 180, ngc2237: 80, ngc7635: 15, ngc7293: 16, ngc281: 35,
+  ngc253: 28, ngc1365: 11, ngc1499: 160, ic434: 30, ngc2024: 30, ic1805: 150, ic1848: 100,
+  ic2118: 180, ic405: 37, ic1396: 170, ngc7380: 25, ngc891: 14, rho: 270,
+  ngc3372: 120, ngc5139: 36, ngc104: 31, ngc5128: 26, ngc4945: 20, ngc6744: 20, ngc300: 22,
+  ngc55: 32, lmc: 600, smc: 300, ngc2070: 40, ngc6334: 35, ngc6357: 50, ngc3532: 50,
+  ngc4755: 10, ngc6231: 15, ic2602: 50, ic2944: 75, ngc2997: 9, ngc1097: 9,
+}
+for (const o of DSO_CATALOG) o.sizeArcmin = DSO_SIZES[o.id]
+
+// Tamanho aproximado por nome livre (ex.: projeto chamado "M31") — best effort.
+export function sizeForName(name: string): number | undefined {
+  const nm = name.toLowerCase()
+  const hit = DSO_CATALOG.find(o => nm.includes(o.name.toLowerCase()) || nm.includes(o.common.toLowerCase()))
+  return hit?.sizeArcmin
+}
 
 // Busca simples por designação, nome comum ou tipo.
 export function searchCatalog(q: string): DSOObject[] {

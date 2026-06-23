@@ -4,11 +4,11 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip } from 'recharts'
-import { CalendarDays, MapPin, Moon, Search, Loader2, ArrowUp, Clock, Sparkles, Telescope } from 'lucide-react'
+import { CalendarDays, MapPin, Moon, Search, Loader2, ArrowUp, Clock, Sparkles, Telescope, Frame } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { nightBounds, planTarget, quickMax, moonContext, separation } from '@/lib/sky'
-import { DSO_CATALOG } from '@/lib/dso-catalog'
+import { DSO_CATALOG, sizeForName } from '@/lib/dso-catalog'
 import { useToast } from '@/components/ui/toast'
 
 const DEFAULT_LAT = -27.6, DEFAULT_LON = -48.5
@@ -22,6 +22,7 @@ export default function PlannerPage() {
   const { toast } = useToast()
   const { data: profile } = api.user.getProfile.useQuery()
   const { data: projects } = api.projects.list.useQuery()
+  const { data: setups } = api.setups.list.useQuery()
 
   const lat = profile?.latitude  ?? DEFAULT_LAT
   const lon = profile?.longitude ?? DEFAULT_LON
@@ -32,6 +33,7 @@ export default function PlannerPage() {
   const [targetKey, setKey]   = useState<string>('')   // projectId | '__custom'
   const [customName, setName] = useState('')
   const [custom, setCustom]   = useState<{ raH: number; decDeg: number } | null>(null)
+  const [setupSel, setSetupSel] = useState<string>('')  // '' = automático
 
   const resolve = api.catalog.resolve.useMutation()
 
@@ -45,6 +47,13 @@ export default function PlannerPage() {
     ? (custom ? { raH: custom.raH, decDeg: custom.decDeg, name: customName || 'Alvo' } : null)
     : catSel ? { raH: catSel.raHours, decDeg: catSel.decDeg, name: `${catSel.common} (${catSel.name})` }
     : proj ? { raH: proj.raHours!, decDeg: proj.decDegrees!, name: proj.name } : null
+
+  // Enquadramento: setup ativo (escolha manual → setup do projeto → padrão → 1º) e FOV.
+  const defaultSetupId = (proj as any)?.setupId ?? setups?.find(s => s.isDefault)?.id ?? setups?.[0]?.id
+  const setup = setups?.find(s => s.id === (setupSel || defaultSetupId))
+  const fov = fovOf(setup)
+  // Tamanho do alvo: catálogo direto, ou casamento por nome (projeto/custom).
+  const objSizeArcmin = catSel?.sizeArcmin ?? (target ? sizeForName(target.name) : undefined)
 
   const plan = useMemo(
     () => target ? planTarget(target.raH, target.decDeg, lat, lon, bounds) : null,
@@ -178,6 +187,48 @@ export default function PlannerPage() {
             <Metric icon={Moon}     label="Lua iluminada" value={`${plan.moonIllum}%`} hint={plan.moonAlt > 0 ? 'acima do horizonte' : 'abaixo do horizonte'} />
             <Metric icon={Moon}     label="Separação da Lua" value={`${plan.moonSep}°`} hint={plan.moonSep < 40 ? 'perto — cuidado' : 'ok'} />
           </div>
+
+          {/* Enquadramento — FOV do setup sobre o alvo */}
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Frame className="w-4 h-4 text-cosmos-400" /> Enquadramento
+              </h2>
+              {!!setups?.length && (
+                <select value={setupSel || defaultSetupId || ''} onChange={e => setSetupSel(e.target.value)}
+                  className="input h-8 py-0 text-xs w-auto">
+                  {setups.map(s => <option key={s.id} value={s.id}>{s.name}{s.isDefault ? ' ★' : ''}</option>)}
+                </select>
+              )}
+            </div>
+
+            {!setups?.length ? (
+              <p className="text-xs text-white/40">
+                Cadastre um <Link href="/dashboard/equipment" className="text-aurora-400 hover:underline">setup (telescópio + câmera)</Link> pra ver o campo sobre o alvo.
+              </p>
+            ) : !fov ? (
+              <p className="text-xs text-white/40">Este setup não tem telescópio/câmera com dados suficientes (focal, pixel, sensor).</p>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <FramingDiagram fovW={fov.wArcmin} fovH={fov.hArcmin} objSize={objSizeArcmin} />
+                <div className="text-xs space-y-1.5 min-w-0 flex-1">
+                  <p className="text-white/70">Campo: <span className="mono text-white">{fmtAng(fov.wArcmin)} × {fmtAng(fov.hArcmin)}</span></p>
+                  <p className="text-white/40">Escala <span className="mono">{fov.plateScale.toFixed(2)}″/px</span> · focal {setup?.telescope?.focalLengthMm}mm</p>
+                  {objSizeArcmin != null ? (() => {
+                    const verdict = framingVerdict(fov.wArcmin, fov.hArcmin, objSizeArcmin)
+                    return (
+                      <>
+                        <p className="text-white/40">Alvo ~<span className="mono">{fmtAng(objSizeArcmin)}</span> (aprox.)</p>
+                        <p className={cn('font-medium', verdict.cls)}>{verdict.txt}</p>
+                      </>
+                    )
+                  })() : (
+                    <p className="text-white/30">Tamanho do alvo desconhecido — escolha do catálogo pra ver em escala.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -241,6 +292,48 @@ export default function PlannerPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// FOV do setup (telescópio + câmera) em arcmin + escala de placa.
+function fovOf(setup: any): { wArcmin: number; hArcmin: number; plateScale: number } | null {
+  const t = setup?.telescope, c = setup?.camera
+  if (!t?.focalLengthMm || !c?.pixelSizeUm || !c?.sensorWidthPx || !c?.sensorHeightPx) return null
+  const plateScale = (c.pixelSizeUm / t.focalLengthMm) * 206.265 // arcsec/px
+  return {
+    wArcmin: (plateScale * c.sensorWidthPx) / 60,
+    hArcmin: (plateScale * c.sensorHeightPx) / 60,
+    plateScale,
+  }
+}
+
+function fmtAng(arcmin: number): string {
+  return arcmin >= 120 ? `${(arcmin / 60).toFixed(1)}°` : `${arcmin.toFixed(0)}′`
+}
+
+function framingVerdict(fovW: number, fovH: number, obj: number): { txt: string; cls: string } {
+  const fmin = Math.min(fovW, fovH), fmax = Math.max(fovW, fovH)
+  if (obj <= fmin * 0.7) return { txt: 'Cabe folgado', cls: 'text-aurora-400' }
+  if (obj <= fmin)       return { txt: 'Cabe — enquadra bem', cls: 'text-green-400' }
+  if (obj <= fmax)       return { txt: 'Cabe só num sentido — gire a câmera', cls: 'text-amber-400' }
+  return { txt: 'Maior que o campo — precisa de mosaico', cls: 'text-orange-400' }
+}
+
+// Desenha o campo (sensor) e o alvo em escala, centrados. O viewBox acomoda o maior dos dois.
+function FramingDiagram({ fovW, fovH, objSize }: { fovW: number; fovH: number; objSize?: number }) {
+  const W = 220, H = 150, pad = 16
+  const maxExt = Math.max(fovW, fovH, objSize ?? 0) || 1
+  const scale = (Math.min(W, H) - pad * 2) / maxExt
+  const cx = W / 2, cy = H / 2
+  const rw = fovW * scale, rh = fovH * scale
+  const or = objSize != null ? (objSize * scale) / 2 : 0
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[260px] shrink-0" role="img" aria-label="Campo do setup sobre o alvo">
+      {objSize != null && (
+        <circle cx={cx} cy={cy} r={or} fill="rgba(124,111,245,0.25)" stroke="#a29bff" strokeWidth={1} />
+      )}
+      <rect x={cx - rw / 2} y={cy - rh / 2} width={rw} height={rh} fill="none" stroke="#34d399" strokeWidth={1.5} strokeDasharray="4 3" rx={2} />
+    </svg>
   )
 }
 
