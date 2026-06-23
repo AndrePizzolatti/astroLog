@@ -149,7 +149,7 @@ export function TelescopeForm({ open, onOpenChange, initial, prefill }: Props) {
           </div>
           <div>
             <label className="input-label">Peso (kg)</label>
-            <input {...register('weightKg')} type="number" step="0.1" className="input" placeholder="5.4" />
+            <input {...register('weightKg')} type="number" step="any" className="input" placeholder="5.4" />
           </div>
           <div className="col-span-2">
             <label className="input-label">Notas</label>

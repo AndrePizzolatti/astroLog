@@ -146,7 +146,7 @@ export function CameraForm({ open, onOpenChange, initial, prefill }: Props) {
           </div>
           <div>
             <label className="input-label">Pixel size (µm) *</label>
-            <input {...register('pixelSizeUm')} type="number" step="0.01" className="input" placeholder="3.76" />
+            <input {...register('pixelSizeUm')} type="number" step="any" className="input" placeholder="3.76" />
             {errors.pixelSizeUm && <p className="input-error">{errors.pixelSizeUm.message}</p>}
           </div>
           <div>
@@ -181,11 +181,11 @@ export function CameraForm({ open, onOpenChange, initial, prefill }: Props) {
           )}
           <div>
             <label className="input-label">Read noise (e⁻)</label>
-            <input {...register('readNoiseE')} type="number" step="0.1" className="input" placeholder="3.3" />
+            <input {...register('readNoiseE')} type="number" step="any" className="input" placeholder="3.3" />
           </div>
           <div>
             <label className="input-label">Full well (e⁻)</label>
-            <input {...register('fullWellCapacity')} type="number" step="100" className="input" placeholder="50000" />
+            <input {...register('fullWellCapacity')} type="number" step="any" className="input" placeholder="50000" />
           </div>
           <div>
             <label className="input-label">QE máx (%)</label>
@@ -193,7 +193,7 @@ export function CameraForm({ open, onOpenChange, initial, prefill }: Props) {
           </div>
           <div>
             <label className="input-label">Peso (kg)</label>
-            <input {...register('weightKg')} type="number" step="0.1" className="input" placeholder="0.8" />
+            <input {...register('weightKg')} type="number" step="any" className="input" placeholder="0.8" />
           </div>
           <div className="col-span-2 flex items-center gap-2">
             <input {...register('cooled')} type="checkbox" id="cooled" className="rounded" />

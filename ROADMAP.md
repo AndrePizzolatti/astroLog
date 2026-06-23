@@ -10,7 +10,8 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 1. [x] **Efeméride + Planejador de sessão** — FEITO. `astronomy-engine` em `src/lib/sky.ts`;
    `/dashboard/planner` com curva de altitude, trânsito, horas visíveis, Lua (iluminação/separação),
    ranking dos projetos e **catálogo DSO offline + sugestões "bons alvos pra esta noite"** (ranqueia o
-   catálogo pela altitude/horas/distância da Lua). (Falta: FOV do setup sobre o alvo.)
+   catálogo pela altitude/horas/distância da Lua) e **enquadramento** (FOV do setup desenhado sobre o
+   alvo em escala, com veredito cabe/mosaico).
 2. [x] **Calendário astronômico** — FEITO. `/dashboard/calendar`: grade do mês (fase da Lua +
    eventos), painel do dia (eventos + visibilidade dos planetas com janela de/até e altitude máx),
    lista de eventos do mês. `planetVisibility` em `sky.ts`.
@@ -44,15 +45,19 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [ ] Filtrar eclipses por **visibilidade na localização** do usuário (hoje só mostra a data + região geral).
 - [ ] Manter a tabela curada de eclipses/oposições atualizada (`src/lib/astro-events.ts`).
 
-## Planejador de sessão (não construído)
-- [ ] Cruzar previsão + equipamento + alvos: curva de **altitude** na noite, **separação da Lua**,
-      **FOV** do setup sobre o alvo, e recomendação de exposição/integração.
+## Planejador de sessão — FEITO (núcleo)
+- [x] Curva de **altitude** na noite, **separação da Lua**, ranking, catálogo+sugestões, e **FOV do
+      setup sobre o alvo** (diagrama em escala + veredito). Reusa `setups.list` (focal/pixel/sensor) e
+      `sizeArcmin` do catálogo (casamento por nome pra projetos/custom).
+- [ ] Evoluções: recomendação de **exposição/integração**; FOV com a **rotação** da câmera; reducer/barlow
+      mudando a focal; eixo maior/menor do alvo (elipse, não círculo); cruzar com o **score de céu**.
 
 ## Calendário astronômico — FEITO
 - [x] `/dashboard/calendar`: grade do mês (fase da Lua + eventos), painel do dia (eventos +
       visibilidade dos planetas, janela de/até e altitude máx) e lista de eventos do mês.
-- [ ] Evoluções possíveis: marcar no calendário as noites de melhor "score" de céu (cruzar com a
-      previsão), e destacar dias com janela de lua nova longa.
+- [x] **Calendário × score de céu** — FEITO. A previsão (próx. ~7 noites) entra como barra de cor no
+      rodapé das células (score DSO), as noites escuras (Lua < 25%) ganham destaque sutil, legenda e o
+      score no painel do dia (com link pra Previsão). (Evolução: marcar a melhor janela de lua nova longa.)
 
 ## Imagem planetária — FEITO
 - [x] `captureType` (DSO/Planetária); sessão planetária com software/formato/fps/exposição-ms/
@@ -98,11 +103,14 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
       pra alvos de foco longo. **Planetária** = nuvem/vento/chuva + **seeing** (até 45) e **sem Lua**.
       Seeing = proxy por jet stream (250 hPa + 500 hPa do Open-Meteo). Validado (SC: jet 204 km/h →
       seeing ruim → planetária despenca vs DSO).
-- [ ] **Seeing melhor via 7Timer! (upgrade factível, grátis):** trocar/complementar o proxy de jet
-      stream pelo índice de **seeing + transparência** do 7Timer! ASTRO (`7timer.info/bin/astro.php`,
-      API grátis sem chave, dados a cada 3h). Continua sendo previsão de modelo, mas é um índice feito
-      pra astronomia (melhor que o jet cru). Medição concreta segue sendo das capturas (FWHM) — não há
-      API que meça o seeing local; meteoblue (pago) só dá uma previsão mais fina.
+- [x] **Seeing via 7Timer!** — FEITO. `fetchSevenTimer` (paralelo ao Open-Meteo, timeout 6s) pega o
+      índice de **seeing (1–8 → arcsec) + transparência** do 7Timer! ASTRO; a média por noite vira a
+      penalidade de seeing (planetária e DSO alta-res), com o jet stream como **fallback** se o 7Timer
+      cair. Cartão mostra "seeing X ~1,4″ (7Timer)" + transparência no tooltip. Validado (jet dava
+      pessimista t=1; 7Timer deu ~1,4″ médio t=0,52). Segue sendo estimativa, não medição.
+- [x] **Transparência no score DSO** — FEITO. A transparência do 7Timer (idx 1–8) entra como
+      penalidade leve (até 20) nos scores DSO e DSO alta-res (planetária não usa — alvo brilhante fura
+      haze). Só pontua quando o 7Timer responde; cartão DSO mostra uma linha de transparência.
 
 ## Dívida técnica (de code review / design — sem impacto imediato)
 - [ ] **Camada semântica de cor:** unificar os dois verdes (`aurora` vs `green-400`) e os dois âmbares

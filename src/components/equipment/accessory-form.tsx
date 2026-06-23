@@ -115,7 +115,7 @@ export function AccessoryForm({ open, onOpenChange, initial }: Props) {
           </div>
           <div className="col-span-2">
             <label className="input-label">Fator focal</label>
-            <input {...register('focalFactor')} type="number" step="0.01" className="input" placeholder="0.75 para redutor, 2.0 para barlow" />
+            <input {...register('focalFactor')} type="number" step="any" className="input" placeholder="0.75 para redutor, 2.0 para barlow" />
           </div>
           <div className="col-span-2">
             <label className="input-label">Notas</label>

@@ -6,6 +6,7 @@ import {
   addMonths, format, isSameMonth, isSameDay, differenceInCalendarDays,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight, MapPin, Sparkles, Sun, Moon, Orbit } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,11 @@ import { nightBounds, planetVisibility } from '@/lib/sky'
 
 const DEFAULT_LAT = -27.6, DEFAULT_LON = -48.5
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const DARK_SKY_MAX = 25   // % iluminada — abaixo disso a noite é boa pra céu profundo
+
+function scoreColor(s: number): string {
+  return s >= 80 ? 'bg-aurora-400' : s >= 60 ? 'bg-green-400' : s >= 40 ? 'bg-amber-400' : s >= 20 ? 'bg-orange-400' : 'bg-red-400'
+}
 
 const TYPE_DOT: Record<string, string> = {
   METEOR_SHOWER: 'bg-star-400', ECLIPSE_SOLAR: 'bg-amber-400',
@@ -32,6 +38,14 @@ export default function CalendarPage() {
 
   const [view, setView] = useState(() => new Date())
   const [selected, setSelected] = useState(() => new Date())
+
+  // Previsão (próximas ~7 noites) cruzada com o calendário — score DSO por dia.
+  const { data: forecast } = api.weather.forecast.useQuery(undefined, { staleTime: 30 * 60 * 1000 })
+  const scoreByDay = useMemo(() => {
+    const m = new Map<string, { score: number; label: string }>()
+    for (const n of forecast?.nights ?? []) m.set(n.date, { score: n.scoreDso, label: n.labelDso })
+    return m
+  }, [forecast])
 
   const gridStart = startOfWeek(startOfMonth(view), { weekStartsOn: 0 })
   const gridEnd   = endOfWeek(endOfMonth(view), { weekStartsOn: 0 })
@@ -94,14 +108,18 @@ export default function CalendarPage() {
               const isSel   = isSameDay(d, selected)
               const isToday = isSameDay(d, new Date())
               const moon    = getMoonPhase(d)
+              const dark    = inMonth && moon.illumination <= DARK_SKY_MAX
+              const sc      = scoreByDay.get(dayKey(d))
               const dots    = (eventsByDay.get(dayKey(d)) ?? []).filter(e => e.type !== 'NEW_MOON' && e.type !== 'FULL_MOON')
               return (
                 <button
                   key={d.toISOString()}
                   onClick={() => setSelected(d)}
+                  title={sc ? `Céu profundo: ${sc.score} · ${sc.label}` : dark ? 'Noite escura (boa pra céu profundo)' : undefined}
                   className={cn(
-                    'aspect-square rounded-lg p-1 flex flex-col items-center justify-between text-xs transition-colors border',
+                    'relative overflow-hidden aspect-square rounded-lg p-1 flex flex-col items-center justify-between text-xs transition-colors border',
                     isSel ? 'bg-cosmos-500/25 border-cosmos-500/40'
+                      : dark ? 'border-transparent bg-aurora-400/[0.06] hover:bg-white/5'
                       : 'border-transparent hover:bg-white/5',
                     !inMonth && 'opacity-30',
                   )}
@@ -111,9 +129,16 @@ export default function CalendarPage() {
                   <span className="flex gap-0.5 h-1.5">
                     {dots.slice(0, 3).map((e, i) => <span key={i} className={cn('w-1.5 h-1.5 rounded-full', TYPE_DOT[e.type] ?? 'bg-white/40')} />)}
                   </span>
+                  {sc && <span className={cn('absolute bottom-0 left-0 right-0 h-1', scoreColor(sc.score))} />}
                 </button>
               )
             })}
+          </div>
+
+          {/* Legenda */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-[10px] text-white/35">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded bg-aurora-400" /> barra = previsão do céu (DSO, próx. {forecast?.nights?.length ?? 7} noites)</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-aurora-400/[0.12]" /> noite escura (Lua &lt; {DARK_SKY_MAX}%)</span>
           </div>
         </div>
 
@@ -124,6 +149,16 @@ export default function CalendarPage() {
             <p className="text-xs text-white/55 mt-0.5 flex items-center gap-1.5">
               <span>{selMoon.emoji}</span> {selMoon.label} · {selMoon.illumination}% iluminada
             </p>
+            {(() => {
+              const sc = scoreByDay.get(dayKey(selected))
+              return sc ? (
+                <p className="text-xs mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <span className={cn('inline-block w-2 h-2 rounded-full shrink-0', scoreColor(sc.score))} />
+                  <span className="text-white/55">Céu profundo: <span className="text-white font-medium">{sc.score}</span> · {sc.label}</span>
+                  <Link href="/dashboard/weather" className="text-aurora-400 hover:underline">previsão →</Link>
+                </p>
+              ) : null
+            })()}
 
             {selectedEvents.length > 0 && (
               <div className="mt-3 space-y-1.5">

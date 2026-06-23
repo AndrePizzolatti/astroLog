@@ -17,7 +17,7 @@ const schema = z.object({
   targetType:   z.string().optional(),
   captureType:  z.enum(['DSO', 'PLANETARY']).default('DSO'),
   description:  z.string().optional(),
-  setupId:      z.string().optional(),
+  setupId:      z.string().optional().transform(v => (v ? v : null)),
   status:       z.enum(['PLANNING','IN_PROGRESS','READY_TO_PROCESS','PROCESSING','COMPLETED','ARCHIVED']).default('IN_PROGRESS'),
   visibility:   z.enum(['PRIVATE','FRIENDS','PUBLIC']).default('PRIVATE'),
   raHours:      z.coerce.number().min(0).max(24).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
@@ -190,11 +190,11 @@ export function ProjectForm({ open, onOpenChange, initial }: Props) {
             <>
               <div>
                 <label className="input-label">AR (horas)</label>
-                <input {...register('raHours')} type="number" step="0.001" className="input" placeholder="5.589" />
+                <input {...register('raHours')} type="number" step="any" className="input" placeholder="5.589" />
               </div>
               <div>
                 <label className="input-label">Dec (graus)</label>
-                <input {...register('decDegrees')} type="number" step="0.001" className="input" placeholder="-5.391" />
+                <input {...register('decDegrees')} type="number" step="any" className="input" placeholder="-5.391" />
               </div>
             </>
           )}

@@ -18,7 +18,7 @@ const FILTERS = ['L', 'R', 'G', 'B', 'Ha', 'OIII', 'SII']
 
 const schema = z.object({
   projectId:        z.string(),
-  setupId:          z.string().optional(),
+  setupId:          z.string().optional().transform(v => (v ? v : null)),
   observedAt:       z.string(),
   filterUsed:       z.string().optional(),
   lightsCount:      z.coerce.number().int().min(0).default(0),
@@ -408,7 +408,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
             </div>
             <div>
               <label className="input-label">Exposição (s)</label>
-              <input {...register('exposureSeconds')} type="number" step="0.1" className="input" placeholder="300" />
+              <input {...register('exposureSeconds')} type="number" step="any" className="input" placeholder="300" />
             </div>
 
             {/* Preview de integração e armazenamento */}
@@ -441,7 +441,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
             </div>
             <div>
               <label className="input-label">Temp. sensor (°C)</label>
-              <input {...register('sensorTempC')} type="number" step="0.5" className="input" placeholder="-10" />
+              <input {...register('sensorTempC')} type="number" step="any" className="input" placeholder="-10" />
             </div>
           </div>
         </div>
@@ -519,7 +519,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="input-label">Temperatura (°C)</label>
-              <input {...register('temperatureC')} type="number" step="0.1" className="input" placeholder="18" />
+              <input {...register('temperatureC')} type="number" step="any" className="input" placeholder="18" />
             </div>
             <div>
               <label className="input-label">Umidade (%)</label>
@@ -531,11 +531,11 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
             </div>
             <div>
               <label className="input-label">Seeing (")</label>
-              <input {...register('seeingArcsec')} type="number" step="0.1" className="input" placeholder="2.5" />
+              <input {...register('seeingArcsec')} type="number" step="any" className="input" placeholder="2.5" />
             </div>
             <div>
               <label className="input-label">SQM</label>
-              <input {...register('sqmValue')} type="number" step="0.01" className="input" placeholder="21.3" />
+              <input {...register('sqmValue')} type="number" step="any" className="input" placeholder="21.3" />
             </div>
             <div>
               <label className="input-label">Bortle</label>
@@ -546,7 +546,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
             </div>
             <div>
               <label className="input-label">Guiagem RMS (")</label>
-              <input {...register('guidingRmsArcsec')} type="number" step="0.01" className="input" placeholder="0.8" />
+              <input {...register('guidingRmsArcsec')} type="number" step="any" className="input" placeholder="0.8" />
             </div>
             <div>
               <label className="input-label">Avaliação (1-5)</label>
