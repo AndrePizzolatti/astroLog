@@ -30,8 +30,9 @@ interface NightScore {
   moonUpPct:       number   // % das horas noturnas com a Lua acima do horizonte
   moonEmoji:       string
   moonLabel:       string
-  seeingKmh:       number   // jet stream médio (250 hPa), km/h
   seeingLabel:     string   // rótulo do seeing estimado
+  seeingDetail:    string   // "~1,4″ (7Timer)" ou "jet 120 km/h" (fallback)
+  transparencyLabel: string // transparência do céu (7Timer) — '' se desconhecida
   hours:           Array<{
     time:  string
     cloud: number
@@ -88,15 +89,43 @@ function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; 
 const MAX_SEEING_PENALTY       = 45   // planetária — seeing domina
 const MAX_HIRES_SEEING_PENALTY = 25   // DSO alta resolução — seeing pesa, mas bem menos
 
-// Seeing estimado a partir do vento em altitude (jet stream a 250 hPa, com peso menor pro
-// nível médio a 500 hPa). Jet forte = ar turbulento = seeing ruim. Proxy clássico — é uma
-// ESTIMATIVA de modelo, não medição. Retorna t∈[0,1] (0 = ótimo, 1 = péssimo) + rótulo.
-function seeingFrom(avgJet: number, avgMid: number): { t: number; label: string } {
+// Fallback: seeing estimado pelo vento em altitude (jet stream a 250 hPa + 500 hPa). Jet
+// forte = ar turbulento = seeing ruim. Usado quando o 7Timer não responde.
+function seeingFromJet(avgJet: number, avgMid: number): { t: number; label: string } {
   const proxy = avgJet * 0.7 + avgMid * 0.3
   const t = Math.min(1, Math.max(0, (proxy - 30) / (130 - 30)))   // 30 km/h ótimo → 130 péssimo
   const label = proxy < 45 ? 'Excelente' : proxy < 75 ? 'Bom' : proxy < 110 ? 'Médio' : 'Ruim'
   return { t, label }
 }
+
+// 7Timer! ASTRO — índice de seeing/transparência feito pra astronomia (melhor que o jet cru).
+// seeing: 1 (<0,5″) … 8 (>2,5″). transparency: 1 (ótima) … 8 (péssima).
+interface SevenPoint { t: number; seeing: number; transparency: number }
+async function fetchSevenTimer(lat: number, lon: number): Promise<SevenPoint[] | null> {
+  try {
+    const ctrl = new AbortController()
+    const to = setTimeout(() => ctrl.abort(), 6000)
+    const url = `https://www.7timer.info/bin/astro.php?lon=${lon.toFixed(3)}&lat=${lat.toFixed(3)}&ac=0&unit=metric&output=json`
+    const res = await fetch(url, { signal: ctrl.signal })
+    clearTimeout(to)
+    if (!res.ok) return null
+    const data: any = await res.json()
+    const init: string = data?.init
+    const series: any[] = data?.dataseries
+    if (!init || !Array.isArray(series)) return null
+    // init "YYYYMMDDHH" em UTC; cada ponto: timepoint = horas após o init.
+    const initMs = Date.UTC(+init.slice(0, 4), +init.slice(4, 6) - 1, +init.slice(6, 8), +init.slice(8, 10))
+    return series
+      .filter(p => typeof p.seeing === 'number')
+      .map(p => ({ t: initMs + p.timepoint * 3_600_000, seeing: p.seeing, transparency: p.transparency ?? 0 }))
+  } catch { return null }
+}
+
+// índice de seeing do 7Timer (1–8) → arcsec aprox (ponto médio da faixa)
+const SEEING_ARCSEC = [0, 0.4, 0.6, 0.9, 1.1, 1.4, 1.75, 2.25, 2.8]
+const seeingArcsec  = (idx: number) => SEEING_ARCSEC[Math.max(1, Math.min(8, Math.round(idx)))]
+const seeingLabelIdx     = (i: number) => i <= 2 ? 'Excelente' : i <= 3.5 ? 'Bom' : i <= 5.5 ? 'Médio' : 'Ruim'
+const transparencyLabelIdx = (i: number) => i <= 2 ? 'Excelente' : i <= 4 ? 'Boa' : i <= 6 ? 'Média' : 'Ruim'
 
 // Score planetário/lunar: a Lua NÃO conta (alvos brilhantes) e o seeing domina.
 function scorePlanetaryNight(hours: Array<{ cloud: number; wind: number; precip: number }>, seeingPenalty = 0): number {
@@ -212,7 +241,8 @@ export const weatherRouter = router({
         `&hourly=cloud_cover,wind_speed_10m,precipitation_probability,precipitation,wind_speed_250hPa,wind_speed_500hPa` +
         `&timezone=America%2FSao_Paulo&forecast_days=8`
 
-      const res = await fetch(url)
+      // Open-Meteo (nuvem/vento/chuva/jet) + 7Timer (seeing/transparência) em paralelo.
+      const [res, seven] = await Promise.all([fetch(url), fetchSevenTimer(lat, lon)])
       if (!res.ok) throw new Error('Open-Meteo fetch failed')
 
       const data = (await res.json()) as OpenMeteoResponse
@@ -250,8 +280,9 @@ export const weatherRouter = router({
             moonUpPct:      0,
             moonEmoji:      '🌑',
             moonLabel:      '',
-            seeingKmh:      0,
             seeingLabel:    '',
+            seeingDetail:   '',
+            transparencyLabel: '',
             hours:          [],
           }
           nights.push(night)
@@ -274,13 +305,28 @@ export const weatherRouter = router({
         const avgJet        = hrs.reduce((s, h) => s + (h.jet ?? 0), 0) / n
         const avgMid        = hrs.reduce((s, h) => s + (h.mid ?? 0), 0) / n
         const moon          = moonFactor(lat, lon, night.hours)
-        const seeing        = seeingFrom(avgJet, avgMid)
+
+        // Seeing: 7Timer (preferido) → média dos pontos dentro da janela da noite; jet como fallback.
+        let seeingT: number, seeingLabel: string, seeingDetail: string, transparencyLabel = ''
+        const startMs = brt(hrs[0].time).getTime(), endMs = brt(hrs[hrs.length - 1].time).getTime()
+        const pts = seven?.filter(p => p.t >= startMs - 5_400_000 && p.t <= endMs + 5_400_000) ?? []
+        if (pts.length) {
+          const avgSee = pts.reduce((s, p) => s + p.seeing, 0) / pts.length
+          const avgTr  = pts.reduce((s, p) => s + p.transparency, 0) / pts.length
+          seeingT      = Math.min(1, Math.max(0, (avgSee - 1) / 7))   // idx 1 ótimo → 8 péssimo
+          seeingLabel  = seeingLabelIdx(avgSee)
+          seeingDetail = `~${seeingArcsec(avgSee).toFixed(1).replace('.', ',')}″ (7Timer)`
+          transparencyLabel = transparencyLabelIdx(avgTr)
+        } else {
+          const j = seeingFromJet(avgJet, avgMid)
+          seeingT = j.t; seeingLabel = j.label; seeingDetail = `jet ${Math.round(avgJet)} km/h`
+        }
 
         night.scoreDso        = scoreNight(hrs, moon.penalty)
         night.labelDso        = scoreLabel(night.scoreDso)
-        night.scoreDsoHiRes   = scoreNight(hrs, moon.penalty, seeing.t * MAX_HIRES_SEEING_PENALTY)
+        night.scoreDsoHiRes   = scoreNight(hrs, moon.penalty, seeingT * MAX_HIRES_SEEING_PENALTY)
         night.labelDsoHiRes   = scoreLabel(night.scoreDsoHiRes)
-        night.scorePlanetary  = scorePlanetaryNight(hrs, seeing.t * MAX_SEEING_PENALTY)
+        night.scorePlanetary  = scorePlanetaryNight(hrs, seeingT * MAX_SEEING_PENALTY)
         night.labelPlanetary  = scoreLabel(night.scorePlanetary)
         night.cloudCoverAvg   = +(hrs.reduce((s, h) => s + h.cloud, 0) / n).toFixed(1)
         night.windAvg         = +(hrs.reduce((s, h) => s + h.wind, 0)  / n).toFixed(1)
@@ -289,8 +335,9 @@ export const weatherRouter = router({
         night.moonUpPct       = moon.upPct
         night.moonEmoji       = moon.emoji
         night.moonLabel       = moon.label
-        night.seeingKmh       = Math.round(avgJet)
-        night.seeingLabel     = seeing.label
+        night.seeingLabel     = seeingLabel
+        night.seeingDetail    = seeingDetail
+        night.transparencyLabel = transparencyLabel
       })
 
       return {

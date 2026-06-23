@@ -148,10 +148,11 @@ function NightCard({ night, mode, hiRes }: { night: any; mode: Mode; hiRes: bool
         </div>
       )}
       {showSeeing && (
-        <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5" title="Seeing ESTIMADO pelo jet stream (250 hPa) — não é medição">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5"
+          title={`Seeing estimado (não é medição)${night.transparencyLabel ? ` · transparência ${night.transparencyLabel}` : ''}`}>
           <Telescope className="w-3 h-3 text-white/40" />
-          <span className="mono text-white/60">{night.seeingKmh} km/h</span>
           <span className="text-white/40">seeing {night.seeingLabel.toLowerCase()}</span>
+          <span className="mono text-white/55">{night.seeingDetail}</span>
         </div>
       )}
 
@@ -358,7 +359,7 @@ export default function WeatherPage() {
               <p className="text-xs text-white/55 mt-0.5">
                 Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}%
                 {mode === 'dso' && ` · Lua ${best.moonEmoji} ${best.moonIllumPct}%`}
-                {(mode === 'planetary' || (mode === 'dso' && hiRes)) && ` · Seeing ${best.seeingLabel} (${best.seeingKmh} km/h)`}
+                {(mode === 'planetary' || (mode === 'dso' && hiRes)) && ` · Seeing ${best.seeingLabel} (${best.seeingDetail})`}
               </p>
             </div>
             <div className="text-right">
@@ -377,10 +378,10 @@ export default function WeatherPage() {
       </div>
 
       <p className="text-xs text-white/20 mt-6 text-center max-w-2xl mx-auto">
-        Dados: Open-Meteo + efeméride · <strong className="text-white/30">Céu profundo</strong>: nuvem + vento + chuva + Lua ·
-        <strong className="text-white/30"> Planetária</strong>: troca a Lua pelo seeing (jet stream a 250 hPa).
-        O seeing é uma <strong className="text-white/30">estimativa</strong>, não medição — a medição real vem das suas
-        capturas (FWHM no SharpCap/AutoStakkert).
+        Dados: Open-Meteo + 7Timer + efeméride · <strong className="text-white/30">Céu profundo</strong>: nuvem + vento + chuva + Lua ·
+        <strong className="text-white/30"> Planetária</strong>: troca a Lua pelo seeing.
+        Seeing/transparência vêm do <strong className="text-white/30">7Timer</strong> (jet stream como reserva) — é
+        <strong className="text-white/30"> estimativa</strong>, não medição; a real vem das suas capturas (FWHM no SharpCap/AutoStakkert).
       </p>
     </div>
   )

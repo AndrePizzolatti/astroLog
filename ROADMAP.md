@@ -102,11 +102,13 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
       pra alvos de foco longo. **Planetária** = nuvem/vento/chuva + **seeing** (até 45) e **sem Lua**.
       Seeing = proxy por jet stream (250 hPa + 500 hPa do Open-Meteo). Validado (SC: jet 204 km/h →
       seeing ruim → planetária despenca vs DSO).
-- [ ] **Seeing melhor via 7Timer! (upgrade factível, grátis):** trocar/complementar o proxy de jet
-      stream pelo índice de **seeing + transparência** do 7Timer! ASTRO (`7timer.info/bin/astro.php`,
-      API grátis sem chave, dados a cada 3h). Continua sendo previsão de modelo, mas é um índice feito
-      pra astronomia (melhor que o jet cru). Medição concreta segue sendo das capturas (FWHM) — não há
-      API que meça o seeing local; meteoblue (pago) só dá uma previsão mais fina.
+- [x] **Seeing via 7Timer!** — FEITO. `fetchSevenTimer` (paralelo ao Open-Meteo, timeout 6s) pega o
+      índice de **seeing (1–8 → arcsec) + transparência** do 7Timer! ASTRO; a média por noite vira a
+      penalidade de seeing (planetária e DSO alta-res), com o jet stream como **fallback** se o 7Timer
+      cair. Cartão mostra "seeing X ~1,4″ (7Timer)" + transparência no tooltip. Validado (jet dava
+      pessimista t=1; 7Timer deu ~1,4″ médio t=0,52). Segue sendo estimativa, não medição.
+- [ ] **Transparência no score DSO:** o 7Timer já traz transparência (haze prejudica céu profundo
+      fraco) — hoje só é exibida; dá pra entrar como penalidade leve no score DSO.
 
 ## Dívida técnica (de code review / design — sem impacto imediato)
 - [ ] **Camada semântica de cor:** unificar os dois verdes (`aurora` vs `green-400`) e os dois âmbares
