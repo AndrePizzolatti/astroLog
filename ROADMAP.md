@@ -55,8 +55,9 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Calendário astronômico — FEITO
 - [x] `/dashboard/calendar`: grade do mês (fase da Lua + eventos), painel do dia (eventos +
       visibilidade dos planetas, janela de/até e altitude máx) e lista de eventos do mês.
-- [ ] Evoluções possíveis: marcar no calendário as noites de melhor "score" de céu (cruzar com a
-      previsão), e destacar dias com janela de lua nova longa.
+- [x] **Calendário × score de céu** — FEITO. A previsão (próx. ~7 noites) entra como barra de cor no
+      rodapé das células (score DSO), as noites escuras (Lua < 25%) ganham destaque sutil, legenda e o
+      score no painel do dia (com link pra Previsão). (Evolução: marcar a melhor janela de lua nova longa.)
 
 ## Imagem planetária — FEITO
 - [x] `captureType` (DSO/Planetária); sessão planetária com software/formato/fps/exposição-ms/
