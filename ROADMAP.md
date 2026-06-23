@@ -80,9 +80,12 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Visual / portfólio
 - [x] **Portfólio/galeria** — feito (`/dashboard/portfolio`), usa o thumbnail do Drive derivado do
       link da imagem final. LOCAL mostra placeholder.
-- [ ] Pendências: thumbnail por **sessão** (não só projeto); o thumbnail do Drive só carrega se o
-      arquivo estiver compartilhado ("qualquer pessoa com link") ou logado na conta — talvez gerar/subir
-      um thumb pequeno próprio pra garantir exibição.
+- [x] **Thumbnail por sessão** — FEITO. `ImagingSession.thumbnailUrl` (link de imagem/Drive); campo
+      "Resultado / capa" nos forms DSO e planetária; capa no topo do card via `imageThumbUrl` (reusa o
+      thumbnail do Drive). Útil sobretudo na planetária (resultado é por sessão). **Migration
+      `20260623120000_session_thumbnail` PENDENTE** (`npm run db:migrate:deploy`).
+- [ ] Pendência: o thumbnail do Drive só carrega se o link estiver "qualquer pessoa com o link"
+      (avisado na UI) — pra garantir, gerar/subir um thumb pequeno próprio (precisa de upload).
 
 ## Social (só modelos no schema)
 - [ ] Página **pública** de projeto (usa o `Visibility` que já existe) + **seguir** observadores

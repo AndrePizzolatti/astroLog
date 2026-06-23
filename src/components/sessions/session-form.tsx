@@ -35,6 +35,7 @@ const schema = z.object({
   cloudCoverPct:    z.coerce.number().int().min(0).max(100).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
   guidingRmsArcsec: z.coerce.number().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
   rating:           z.coerce.number().int().min(1).max(5).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  thumbnailUrl:     z.string().optional(),
   notes:            z.string().optional(),
 })
 
@@ -76,7 +77,7 @@ export type SessionInitial = {
   humidityPct?: number | null; seeingArcsec?: number | null
   sqmValue?: number | null; bortleScale?: number | null
   cloudCoverPct?: number | null; guidingRmsArcsec?: number | null
-  rating?: number | null; notes?: string | null
+  rating?: number | null; thumbnailUrl?: string | null; notes?: string | null
   calibrationFrameUsages?: Array<{ calibrationFrameId: string; calibrationFrame: { id: string; label: string; frameType: string } }>
 }
 
@@ -201,6 +202,7 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
         cloudCoverPct:    initial.cloudCoverPct ?? '',
         guidingRmsArcsec: initial.guidingRmsArcsec ?? '',
         rating:           initial.rating ?? '',
+        thumbnailUrl:     initial.thumbnailUrl ?? '',
         notes:            initial.notes ?? '',
       })
       const existingIds = initial.calibrationFrameUsages?.map(u => u.calibrationFrameId) ?? []
@@ -556,6 +558,12 @@ export function SessionForm({ projectId, open, onOpenChange, initial }: Props) {
               </select>
             </div>
           </div>
+        </div>
+
+        <div>
+          <label className="input-label">Resultado / capa (link)</label>
+          <input {...register('thumbnailUrl')} className="input" placeholder="Link do Drive ou URL da imagem" />
+          <p className="text-[10px] text-white/30 mt-1">Vira a capa da sessão. Link do Drive precisa estar como “qualquer pessoa com o link”.</p>
         </div>
 
         <div>

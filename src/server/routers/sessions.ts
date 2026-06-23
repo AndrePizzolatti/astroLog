@@ -76,6 +76,7 @@ export const sessionsRouter = router({
       totalFrames:     z.number().int().min(0).optional(),
       stackedPct:      z.number().int().min(0).max(100).optional(),
       roi:             z.string().optional(),
+      thumbnailUrl:    z.string().nullable().optional(),
       notes:           z.string().optional(),
       rating:          z.number().int().min(1).max(5).optional(),
     }))
@@ -187,6 +188,7 @@ export const sessionsRouter = router({
       totalFrames:     z.number().int().min(0).nullable().optional(),
       stackedPct:      z.number().int().min(0).max(100).nullable().optional(),
       roi:             z.string().nullable().optional(),
+      thumbnailUrl:    z.string().nullable().optional(),
       notes:           z.string().nullable().optional(),
       rating:          z.number().int().min(1).max(5).nullable().optional(),
     }))
