@@ -71,6 +71,7 @@ model User {
   projects           ImagingProject[]
   observationLogs    ObservationLog[]
   alertSubscriptions AlertSubscription[]
+  alertNotifications AlertNotification[]
   followers          Follow[]            @relation("following")
   following          Follow[]            @relation("follower")
   calibrationFrames  CalibrationFrame[]
@@ -389,6 +390,20 @@ model AlertSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, eventType])
+}
+
+// Registro de avisos já enviados — evita reenviar o mesmo evento a cada execução
+// do cron diário. eventKey identifica o evento (tipo:data:nome) ou o APOD do dia.
+model AlertNotification {
+  id       String   @id @default(cuid())
+  userId   String
+  eventKey String
+  sentAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventKey])
+  @@index([userId])
 }
 
 model Follow {

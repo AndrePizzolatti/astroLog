@@ -16,8 +16,9 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 3. [x] **Alertas calculados + APOD** — FEITO. Eclipses e oposições calculados via astronomy-engine
    (qualquer ano, sem tabela); card do APOD na página de alertas. (Falta: conjunções planeta-planeta,
    elongações de Mercúrio/Vênus, e visibilidade local de eclipse solar.)
-4. **Entrega de alertas (e-mail + cron)** — fecha o ciclo "não perder evento" (escolher provedor,
-   ex.: Resend; Vercel Cron). Pode ser puxado pra antes se quiser notificação logo.
+4. [x] **Entrega de alertas (e-mail + cron)** — FEITO. Cron diário (`vercel.json` → `/api/cron/alerts`,
+   12:00 UTC) monta um resumo por usuário dos eventos inscritos dentro da janela de antecedência
+   (`advanceHours`), evita reenvio (`AlertNotification`) e envia via Resend. APOD opcional no resumo.
 5. [x] **Suporte a planetária** — FEITO. `captureType` (DSO/Planetária) no projeto; sessão
    planetária com fps/exposição-ms/total de frames/% empilhado/ROI/software; form e card próprios.
 6. **Polimento** — thumbnails por sessão / thumb próprio; score de céu v2 com Lua; catálogo DSO offline.
@@ -31,9 +32,11 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [x] **Elongações** de Mercúrio/Vênus (máxima elongação) — entram como evento.
 - [ ] **Conjunções** planeta-planeta (amostragem de aproximação).
 - [ ] **Visibilidade local** do eclipse solar (SearchLocalSolarEclipse com a localização).
-- [ ] **Entrega por e-mail + cron** — hoje os eventos só aparecem no app. Falta um provedor
-      de e-mail (ex.: Resend) e uma Vercel Cron que rode diariamente, compare os eventos com
-      as inscrições (e o `advanceHours`) e dispare o aviso. (fecha o ciclo do alerta)
+- [x] **Entrega por e-mail + cron** — FEITO. `/api/cron/alerts` (Vercel Cron diário) → `processAlertDigests`
+      compara eventos com as inscrições (e o `advanceHours`), deduplica em `AlertNotification` e envia um
+      resumo por e-mail via Resend (`src/lib/email.ts`). APOD opcional no resumo se inscrito.
+      Limitação do free tier do Resend: o remetente `onboarding@resend.dev` só entrega ao e-mail dono da
+      conta — pra outros destinatários, verificar um domínio e trocar `EMAIL_FROM`.
 - [ ] **ISS, cometas, conjunções** — ficaram de fora do motor v1 (precisam de API/efeméride
       externa: passes da ISS por localização, cometas ativos, conjunções calculadas).
 - [ ] **APOD** — feed da imagem astronômica do dia (NASA APOD API, `NASA_API_KEY` já no .env).
@@ -91,4 +94,5 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Feito recentemente (referência)
 - Import de pasta FITS + sequência N.I.N.A.; equipamento via header; Siril Lab (script + limpeza + SHO/PixelMath);
   agente local (processa/limpa/arquiva, multi-noite dinâmico); armazenamento Local/Drive; auto-link da biblioteca;
-  motor de alertas (eventos no app); **autocomplete de alvo + AR/Dec via SIMBAD/Sésame**.
+  motor de alertas (eventos no app); autocomplete de alvo + AR/Dec via SIMBAD/Sésame;
+  import de metadados planetários (SER/FireCapture) + brilho de Vênus; **alertas por e-mail (Resend) + cron diário**.

@@ -51,12 +51,22 @@ Copie `.env.example` para `.env` e preencha:
 | `NEXTAUTH_URL` / `NEXTAUTH_SECRET` | NextAuth (`openssl rand -base64 32` pro secret) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | login Google + Drive |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | login GitHub |
-| `NASA_API_KEY` | opcional (futuro: APOD) |
+| `NASA_API_KEY` | imagem do dia (APOD) — opcional, usa `DEMO_KEY` se vazio |
+| `RESEND_API_KEY` | alertas por e-mail (Resend) — opcional |
+| `EMAIL_FROM` | remetente do e-mail (padrão `AstroLog <onboarding@resend.dev>`) |
+| `CRON_SECRET` | protege `/api/cron/alerts` (a Vercel injeta no cron) |
 
 **OAuth:** crie os apps no Google Cloud / GitHub e aponte o redirect para
 `http://localhost:3000/api/auth/callback/google` (e `/github`). Para usar o **picker do
 Google Drive**, habilite a *Google Drive API* e adicione o escopo
 `drive.metadata.readonly` na tela de consentimento (modo Testing já basta pra uso pessoal).
+
+**Alertas por e-mail (opcional):** crie uma chave no [Resend](https://resend.com), coloque em
+`RESEND_API_KEY` e gere um `CRON_SECRET`. O `vercel.json` já registra um cron diário (12:00 UTC)
+em `/api/cron/alerts`, que envia um resumo dos eventos inscritos (página **Alertas**) quando se
+aproximam. No free tier do Resend, o remetente `onboarding@resend.dev` só entrega para o e-mail
+dono da conta — para outros destinatários, verifique um domínio e troque o `EMAIL_FROM`. Pra
+testar local: `curl -XPOST localhost:3000/api/cron/alerts` (sem `CRON_SECRET` em dev, é liberado).
 
 ### 3. Banco de dados
 ```bash

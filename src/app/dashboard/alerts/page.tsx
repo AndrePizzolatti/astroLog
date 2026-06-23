@@ -171,7 +171,7 @@ export default function AlertsPage() {
       {/* Inscrições */}
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-white mb-1">Inscrições</h2>
-        <p className="text-xs text-white/40 mb-4">Marque os tipos que quer acompanhar (aviso por e-mail é a próxima camada).</p>
+        <p className="text-xs text-white/40 mb-4">Marque os tipos que quer acompanhar — você recebe um resumo por e-mail quando o evento se aproxima.</p>
         <div className="divide-y divide-white/5">
         {isLoading ? (
           [...Array(7)].map((_, i) => (
@@ -223,7 +223,7 @@ export default function AlertsPage() {
       </div>
 
       <p className="text-xs text-white/20 mt-4 text-center">
-        Eventos calculados (luas, meteoros) e curados (eclipses, oposições). Envio por e-mail/cron é a próxima camada.
+        Eventos calculados (luas, meteoros, eclipses, oposições/elongações). Um cron diário envia o resumo dos inscritos por e-mail.
       </p>
     </div>
   )
