@@ -69,25 +69,27 @@ function moonFactor(lat: number, lon: number, hours: Array<{ time: string }>) {
 }
 
 // DSO: seeing só conta no modo "alta resolução" (galáxia pequena, foco longo) — por isso
-// é parâmetro opcional. Em céu profundo amplo/difuso o seeing é desprezível.
-function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; precipitation: number }>, moonPenalty = 0, seeingPenalty = 0): number {
+// é parâmetro opcional. Em céu profundo amplo/difuso o seeing é desprezível. Transparência
+// (haze) reduz o sinal de alvos fracos — penalidade leve, só quando o 7Timer informa.
+function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; precipitation: number }>, moonPenalty = 0, seeingPenalty = 0, transparencyPenalty = 0): number {
   if (hours.length === 0) return 0
 
   const avgCloud  = hours.reduce((s, h) => s + h.cloud, 0) / hours.length
   const avgWind   = hours.reduce((s, h) => s + h.wind, 0) / hours.length
   const avgPrecip = hours.reduce((s, h) => s + h.precip, 0) / hours.length
 
-  // penalties: clouds 70%, wind 20%, precip 30%, Lua até 30 (+ seeing se alta-res) — depois normaliza
+  // penalties: clouds 70%, wind 20%, precip 30%, Lua até 30, transparência até 20 (+ seeing se alta-res)
   const cloudPenalty  = (avgCloud / 100) * 70
   const windPenalty   = Math.min((avgWind / 50) * 20, 20)
   const precipPenalty = (avgPrecip / 100) * 30
 
-  const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - moonPenalty - seeingPenalty)
+  const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - moonPenalty - seeingPenalty - transparencyPenalty)
   return Math.round(raw)
 }
 
 const MAX_SEEING_PENALTY       = 45   // planetária — seeing domina
 const MAX_HIRES_SEEING_PENALTY = 25   // DSO alta resolução — seeing pesa, mas bem menos
+const MAX_TRANSPARENCY_PENALTY = 20   // DSO — haze reduz o sinal de alvos fracos
 
 // Fallback: seeing estimado pelo vento em altitude (jet stream a 250 hPa + 500 hPa). Jet
 // forte = ar turbulento = seeing ruim. Usado quando o 7Timer não responde.
@@ -306,8 +308,8 @@ export const weatherRouter = router({
         const avgMid        = hrs.reduce((s, h) => s + (h.mid ?? 0), 0) / n
         const moon          = moonFactor(lat, lon, night.hours)
 
-        // Seeing: 7Timer (preferido) → média dos pontos dentro da janela da noite; jet como fallback.
-        let seeingT: number, seeingLabel: string, seeingDetail: string, transparencyLabel = ''
+        // Seeing/transparência: 7Timer (preferido) → média dos pontos na janela da noite; jet fallback.
+        let seeingT: number, seeingLabel: string, seeingDetail: string, transparencyLabel = '', trPenalty = 0
         const startMs = brt(hrs[0].time).getTime(), endMs = brt(hrs[hrs.length - 1].time).getTime()
         const pts = seven?.filter(p => p.t >= startMs - 5_400_000 && p.t <= endMs + 5_400_000) ?? []
         if (pts.length) {
@@ -317,14 +319,15 @@ export const weatherRouter = router({
           seeingLabel  = seeingLabelIdx(avgSee)
           seeingDetail = `~${seeingArcsec(avgSee).toFixed(1).replace('.', ',')}″ (7Timer)`
           transparencyLabel = transparencyLabelIdx(avgTr)
+          trPenalty    = Math.min(1, Math.max(0, (avgTr - 2) / 6)) * MAX_TRANSPARENCY_PENALTY   // idx ≤2 ótimo → 8 péssimo
         } else {
           const j = seeingFromJet(avgJet, avgMid)
           seeingT = j.t; seeingLabel = j.label; seeingDetail = `jet ${Math.round(avgJet)} km/h`
         }
 
-        night.scoreDso        = scoreNight(hrs, moon.penalty)
+        night.scoreDso        = scoreNight(hrs, moon.penalty, 0, trPenalty)
         night.labelDso        = scoreLabel(night.scoreDso)
-        night.scoreDsoHiRes   = scoreNight(hrs, moon.penalty, seeingT * MAX_HIRES_SEEING_PENALTY)
+        night.scoreDsoHiRes   = scoreNight(hrs, moon.penalty, seeingT * MAX_HIRES_SEEING_PENALTY, trPenalty)
         night.labelDsoHiRes   = scoreLabel(night.scoreDsoHiRes)
         night.scorePlanetary  = scorePlanetaryNight(hrs, seeingT * MAX_SEEING_PENALTY)
         night.labelPlanetary  = scoreLabel(night.scorePlanetary)

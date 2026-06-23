@@ -147,6 +147,12 @@ function NightCard({ night, mode, hiRes }: { night: any; mode: Mode; hiRes: bool
           </span>
         </div>
       )}
+      {mode === 'dso' && night.transparencyLabel && (
+        <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5" title="Transparência do céu (7Timer) — haze reduz alvos fracos">
+          <Eye className="w-3 h-3 text-white/40" />
+          <span className="text-white/40">transparência {night.transparencyLabel.toLowerCase()}</span>
+        </div>
+      )}
       {showSeeing && (
         <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5"
           title={`Seeing estimado (não é medição)${night.transparencyLabel ? ` · transparência ${night.transparencyLabel}` : ''}`}>
@@ -359,6 +365,7 @@ export default function WeatherPage() {
               <p className="text-xs text-white/55 mt-0.5">
                 Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}%
                 {mode === 'dso' && ` · Lua ${best.moonEmoji} ${best.moonIllumPct}%`}
+                {mode === 'dso' && best.transparencyLabel && ` · Transp. ${best.transparencyLabel}`}
                 {(mode === 'planetary' || (mode === 'dso' && hiRes)) && ` · Seeing ${best.seeingLabel} (${best.seeingDetail})`}
               </p>
             </div>

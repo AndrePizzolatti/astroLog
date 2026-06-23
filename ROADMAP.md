@@ -107,8 +107,9 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
       penalidade de seeing (planetária e DSO alta-res), com o jet stream como **fallback** se o 7Timer
       cair. Cartão mostra "seeing X ~1,4″ (7Timer)" + transparência no tooltip. Validado (jet dava
       pessimista t=1; 7Timer deu ~1,4″ médio t=0,52). Segue sendo estimativa, não medição.
-- [ ] **Transparência no score DSO:** o 7Timer já traz transparência (haze prejudica céu profundo
-      fraco) — hoje só é exibida; dá pra entrar como penalidade leve no score DSO.
+- [x] **Transparência no score DSO** — FEITO. A transparência do 7Timer (idx 1–8) entra como
+      penalidade leve (até 20) nos scores DSO e DSO alta-res (planetária não usa — alvo brilhante fura
+      haze). Só pontua quando o 7Timer responde; cartão DSO mostra uma linha de transparência.
 
 ## Dívida técnica (de code review / design — sem impacto imediato)
 - [ ] **Camada semântica de cor:** unificar os dois verdes (`aurora` vs `green-400`) e os dois âmbares
