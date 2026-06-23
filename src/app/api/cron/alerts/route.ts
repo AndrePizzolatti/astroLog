@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { isEmailConfigured } from '@/lib/email'
 import { processAlertDigests } from '@/lib/alert-digest'
+
+// Comparação em tempo constante (evita timing attack no segredo do cron).
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a), bb = Buffer.from(b)
+  return ab.length === bb.length && timingSafeEqual(ab, bb)
+}
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -12,7 +19,7 @@ export const maxDuration = 60
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
   if (!secret) return process.env.NODE_ENV !== 'production'
-  return req.headers.get('authorization') === `Bearer ${secret}`
+  return safeEqual(req.headers.get('authorization') ?? '', `Bearer ${secret}`)
 }
 
 async function handle(req: NextRequest) {

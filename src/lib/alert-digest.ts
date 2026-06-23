@@ -193,16 +193,20 @@ export async function processAlertDigests(opts: {
     if (!due.length && !apod) continue
 
     const { subject, html, text } = renderDigestEmail({ items: due, apod, baseUrl, name: u.name })
+    const keys = due.map(d => d.eventKey)
+    if (apod) keys.push(apodKey)
+
+    // Reserva as chaves ANTES de enviar: se o envio der certo mas algo falhar depois,
+    // não reenviamos. Se o próprio envio falhar, desfaz a reserva pra tentar na próxima rodada.
+    await prisma.alertNotification.createMany({
+      data: keys.map(k => ({ userId: u.id, eventKey: k })),
+      skipDuplicates: true,
+    })
     try {
       await sendEmail({ to: u.email, subject, html, text })
-      const keys = due.map(d => d.eventKey)
-      if (apod) keys.push(apodKey)
-      await prisma.alertNotification.createMany({
-        data: keys.map(k => ({ userId: u.id, eventKey: k })),
-        skipDuplicates: true,
-      })
       sent++
     } catch (e) {
+      await prisma.alertNotification.deleteMany({ where: { userId: u.id, eventKey: { in: keys } } }).catch(() => {})
       errors++
       console.error(`[alert-digest] falha ao enviar para ${u.email}:`, e instanceof Error ? e.message : e)
     }
