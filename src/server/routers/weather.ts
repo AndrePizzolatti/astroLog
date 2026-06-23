@@ -19,6 +19,8 @@ interface NightScore {
   date:            string
   scoreDso:        number   // céu profundo: nuvem + vento + chuva + Lua
   labelDso:        string
+  scoreDsoHiRes:   number   // idem + seeing (alvos de alta resolução)
+  labelDsoHiRes:   string
   scorePlanetary:  number   // planetária/lunar: nuvem + vento + chuva + seeing (sem Lua)
   labelPlanetary:  string
   cloudCoverAvg:   number
@@ -65,33 +67,35 @@ function moonFactor(lat: number, lon: number, hours: Array<{ time: string }>) {
   return { illumPct: phase.illumination, upPct: Math.round(upFraction * 100), penalty, emoji: phase.emoji, label: phase.label }
 }
 
-function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; precipitation: number }>, moonPenalty = 0): number {
+// DSO: seeing só conta no modo "alta resolução" (galáxia pequena, foco longo) — por isso
+// é parâmetro opcional. Em céu profundo amplo/difuso o seeing é desprezível.
+function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; precipitation: number }>, moonPenalty = 0, seeingPenalty = 0): number {
   if (hours.length === 0) return 0
 
   const avgCloud  = hours.reduce((s, h) => s + h.cloud, 0) / hours.length
   const avgWind   = hours.reduce((s, h) => s + h.wind, 0) / hours.length
   const avgPrecip = hours.reduce((s, h) => s + h.precip, 0) / hours.length
 
-  // penalties: clouds 70%, wind 20%, precip 30%, Lua até 30 — depois normaliza
+  // penalties: clouds 70%, wind 20%, precip 30%, Lua até 30 (+ seeing se alta-res) — depois normaliza
   const cloudPenalty  = (avgCloud / 100) * 70
   const windPenalty   = Math.min((avgWind / 50) * 20, 20)
   const precipPenalty = (avgPrecip / 100) * 30
 
-  const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - moonPenalty)
+  const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - moonPenalty - seeingPenalty)
   return Math.round(raw)
 }
 
-const MAX_SEEING_PENALTY = 45
+const MAX_SEEING_PENALTY       = 45   // planetária — seeing domina
+const MAX_HIRES_SEEING_PENALTY = 25   // DSO alta resolução — seeing pesa, mas bem menos
 
 // Seeing estimado a partir do vento em altitude (jet stream a 250 hPa, com peso menor pro
-// nível médio a 500 hPa). Jet forte = ar turbulento = seeing ruim. Proxy clássico — não é
-// medição, mas é o melhor sinal grátis. Valores em km/h.
-function seeingFrom(avgJet: number, avgMid: number): { penalty: number; label: string } {
+// nível médio a 500 hPa). Jet forte = ar turbulento = seeing ruim. Proxy clássico — é uma
+// ESTIMATIVA de modelo, não medição. Retorna t∈[0,1] (0 = ótimo, 1 = péssimo) + rótulo.
+function seeingFrom(avgJet: number, avgMid: number): { t: number; label: string } {
   const proxy = avgJet * 0.7 + avgMid * 0.3
   const t = Math.min(1, Math.max(0, (proxy - 30) / (130 - 30)))   // 30 km/h ótimo → 130 péssimo
-  const penalty = t * MAX_SEEING_PENALTY
   const label = proxy < 45 ? 'Excelente' : proxy < 75 ? 'Bom' : proxy < 110 ? 'Médio' : 'Ruim'
-  return { penalty, label }
+  return { t, label }
 }
 
 // Score planetário/lunar: a Lua NÃO conta (alvos brilhantes) e o seeing domina.
@@ -235,6 +239,8 @@ export const weatherRouter = router({
             date:           nightKey,
             scoreDso:       0,
             labelDso:       '',
+            scoreDsoHiRes:  0,
+            labelDsoHiRes:  '',
             scorePlanetary: 0,
             labelPlanetary: '',
             cloudCoverAvg:  0,
@@ -272,7 +278,9 @@ export const weatherRouter = router({
 
         night.scoreDso        = scoreNight(hrs, moon.penalty)
         night.labelDso        = scoreLabel(night.scoreDso)
-        night.scorePlanetary  = scorePlanetaryNight(hrs, seeing.penalty)
+        night.scoreDsoHiRes   = scoreNight(hrs, moon.penalty, seeing.t * MAX_HIRES_SEEING_PENALTY)
+        night.labelDsoHiRes   = scoreLabel(night.scoreDsoHiRes)
+        night.scorePlanetary  = scorePlanetaryNight(hrs, seeing.t * MAX_SEEING_PENALTY)
         night.labelPlanetary  = scoreLabel(night.scorePlanetary)
         night.cloudCoverAvg   = +(hrs.reduce((s, h) => s + h.cloud, 0) / n).toFixed(1)
         night.windAvg         = +(hrs.reduce((s, h) => s + h.wind, 0)  / n).toFixed(1)

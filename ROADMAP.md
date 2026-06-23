@@ -92,11 +92,17 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Diversos
 - [x] Catálogo DSO **offline** embutido (`src/lib/dso-catalog.ts`, ~60 objetos com viés pro Sul) —
       alimenta o seletor do planejador e as sugestões; serve de fallback ao SIMBAD/Sésame.
-- [x] **Score de céu v2 (DSO + Planetária)** — FEITO. Dois scores por noite, com switch na página:
+- [x] **Score de céu v2 (DSO + Planetária + alta-res)** — FEITO. Dois scores por noite, com switch:
       **Céu profundo** = nuvem/vento/chuva + Lua (iluminação × fração da noite acima do horizonte,
-      `astronomy-engine` + offset BRT). **Planetária** = nuvem/vento/chuva + **seeing** (proxy por jet
-      stream a 250 hPa do Open-Meteo, peso menor pro 500 hPa) e **sem Lua**. Cartão troca Lua ↔ seeing
-      conforme o modo. Validado (SC: jet 204 km/h → seeing ruim → planetária despenca vs DSO).
+      `astronomy-engine` + offset BRT); checkbox **"alta resolução"** liga um peso menor de seeing (~25)
+      pra alvos de foco longo. **Planetária** = nuvem/vento/chuva + **seeing** (até 45) e **sem Lua**.
+      Seeing = proxy por jet stream (250 hPa + 500 hPa do Open-Meteo). Validado (SC: jet 204 km/h →
+      seeing ruim → planetária despenca vs DSO).
+- [ ] **Seeing melhor via 7Timer! (upgrade factível, grátis):** trocar/complementar o proxy de jet
+      stream pelo índice de **seeing + transparência** do 7Timer! ASTRO (`7timer.info/bin/astro.php`,
+      API grátis sem chave, dados a cada 3h). Continua sendo previsão de modelo, mas é um índice feito
+      pra astronomia (melhor que o jet cru). Medição concreta segue sendo das capturas (FWHM) — não há
+      API que meça o seeing local; meteoblue (pago) só dá uma previsão mais fina.
 
 ## Dívida técnica (de code review / design — sem impacto imediato)
 - [ ] **Camada semântica de cor:** unificar os dois verdes (`aurora` vs `green-400`) e os dois âmbares
