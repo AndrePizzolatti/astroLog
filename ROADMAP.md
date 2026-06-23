@@ -92,7 +92,10 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Diversos
 - [x] Catálogo DSO **offline** embutido (`src/lib/dso-catalog.ts`, ~60 objetos com viés pro Sul) —
       alimenta o seletor do planejador e as sugestões; serve de fallback ao SIMBAD/Sésame.
-- [ ] Score de céu v2 incluindo **Lua** (fase/iluminação) e seeing.
+- [x] **Score de céu v2 com a Lua** — FEITO. `weather.ts` cruza o score atmosférico com a Lua:
+      iluminação (fase, `getMoonPhase`) × fração da noite acima do horizonte (`astronomy-engine`,
+      com offset BRT), penalidade até 30 pts. Cartão de noite mostra fase/% e tempo no céu.
+      (Falta: seeing — Open-Meteo não dá direto; proxy por vento de altitude fica pra depois.)
 
 ## Dívida técnica (de code review / design — sem impacto imediato)
 - [ ] **Camada semântica de cor:** unificar os dois verdes (`aurora` vs `green-400`) e os dois âmbares
