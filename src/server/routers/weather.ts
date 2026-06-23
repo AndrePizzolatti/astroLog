@@ -1,5 +1,7 @@
 import { z } from 'zod'
+import * as Astronomy from 'astronomy-engine'
 import { router, protectedProcedure } from '../trpc'
+import { getMoonPhase } from '@/lib/moon'
 
 interface OpenMeteoResponse {
   hourly: {
@@ -18,6 +20,10 @@ interface NightScore {
   cloudCoverAvg: number
   windAvg:       number
   precipRisk:    number
+  moonIllumPct:  number   // % iluminada (fase) no meio da noite
+  moonUpPct:     number   // % das horas noturnas com a Lua acima do horizonte
+  moonEmoji:     string
+  moonLabel:     string
   hours:         Array<{
     time:  string
     cloud: number
@@ -26,19 +32,46 @@ interface NightScore {
   }>
 }
 
-function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; precipitation: number }>): number {
+// Open-Meteo devolve horários no fuso pedido (America/Sao_Paulo) sem offset.
+// O Brasil não tem mais horário de verão → UTC−3 o ano todo; anexamos pra obter o
+// instante UTC correto ao calcular a posição da Lua.
+function brt(time: string): Date {
+  return new Date(time + '-03:00')
+}
+
+const MAX_MOON_PENALTY = 30
+
+// Impacto da Lua na noite: iluminação (fase) × fração da noite acima do horizonte.
+// Lua nova ou abaixo do horizonte → ~0; Lua cheia alta a noite toda → penalidade máxima.
+function moonFactor(lat: number, lon: number, hours: Array<{ time: string }>) {
+  if (hours.length === 0) return { illumPct: 0, upPct: 0, penalty: 0, emoji: '🌑', label: '' }
+  const obs = new Astronomy.Observer(lat, lon, 0)
+  const phase = getMoonPhase(brt(hours[Math.floor(hours.length / 2)].time))
+
+  let up = 0
+  for (const h of hours) {
+    const d  = brt(h.time)
+    const eq = Astronomy.Equator(Astronomy.Body.Moon, d, obs, true, true)
+    if (Astronomy.Horizon(d, obs, eq.ra, eq.dec, 'normal').altitude > 0) up++
+  }
+  const upFraction = up / hours.length
+  const penalty = (phase.illumination / 100) * upFraction * MAX_MOON_PENALTY
+  return { illumPct: phase.illumination, upPct: Math.round(upFraction * 100), penalty, emoji: phase.emoji, label: phase.label }
+}
+
+function scoreNight(hours: Array<{ cloud: number; wind: number; precip: number; precipitation: number }>, moonPenalty = 0): number {
   if (hours.length === 0) return 0
 
   const avgCloud  = hours.reduce((s, h) => s + h.cloud, 0) / hours.length
   const avgWind   = hours.reduce((s, h) => s + h.wind, 0) / hours.length
   const avgPrecip = hours.reduce((s, h) => s + h.precip, 0) / hours.length
 
-  // penalties: clouds 70%, wind 20%, precip 30% — then normalize
+  // penalties: clouds 70%, wind 20%, precip 30%, Lua até 30 — depois normaliza
   const cloudPenalty  = (avgCloud / 100) * 70
   const windPenalty   = Math.min((avgWind / 50) * 20, 20)
   const precipPenalty = (avgPrecip / 100) * 30
 
-  const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty)
+  const raw = Math.max(0, 100 - cloudPenalty - windPenalty - precipPenalty - moonPenalty)
   return Math.round(raw)
 }
 
@@ -171,6 +204,10 @@ export const weatherRouter = router({
             cloudCoverAvg: 0,
             windAvg:       0,
             precipRisk:    0,
+            moonIllumPct:  0,
+            moonUpPct:     0,
+            moonEmoji:     '🌑',
+            moonLabel:     '',
             hours:         [],
           }
           nights.push(night)
@@ -186,11 +223,16 @@ export const weatherRouter = router({
       })
 
       nights.forEach(night => {
-        night.score         = scoreNight(night.hours as any)
+        const moon          = moonFactor(lat, lon, night.hours)
+        night.score         = scoreNight(night.hours as any, moon.penalty)
         night.label         = scoreLabel(night.score)
         night.cloudCoverAvg = +(night.hours.reduce((s, h) => s + h.cloud, 0) / (night.hours.length || 1)).toFixed(1)
         night.windAvg       = +(night.hours.reduce((s, h) => s + h.wind, 0)  / (night.hours.length || 1)).toFixed(1)
         night.precipRisk    = +(night.hours.reduce((s, h) => s + h.precip, 0) / (night.hours.length || 1)).toFixed(1)
+        night.moonIllumPct  = moon.illumPct
+        night.moonUpPct     = moon.upPct
+        night.moonEmoji     = moon.emoji
+        night.moonLabel     = moon.label
       })
 
       return {

@@ -126,6 +126,15 @@ function NightCard({ night }: { night: any }) {
         </div>
       </div>
 
+      {/* Lua — fase + tempo acima do horizonte na noite */}
+      <div className="flex items-center justify-center gap-1.5 text-[11px] pt-0.5" title={night.moonLabel}>
+        <span className="text-sm leading-none">{night.moonEmoji}</span>
+        <span className="mono text-white/60">{night.moonIllumPct}%</span>
+        <span className="text-white/40">
+          {night.moonUpPct > 0 ? `lua ${night.moonUpPct}% da noite no céu` : 'lua abaixo do horizonte'}
+        </span>
+      </div>
+
       {night.hours?.length > 0 && (
         <>
           <button
@@ -293,7 +302,7 @@ export default function WeatherPage() {
                 {format(new Date(best.date + 'T12:00:00'), "EEEE, d 'de' MMM", { locale: ptBR })}
               </p>
               <p className="text-xs text-white/55 mt-0.5">
-                Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}%
+                Nuvens {best.cloudCoverAvg.toFixed(0)}% · Vento {best.windAvg.toFixed(0)} km/h · Chuva {best.precipRisk.toFixed(0)}% · Lua {best.moonEmoji} {best.moonIllumPct}%
               </p>
             </div>
             <div className="text-right">
@@ -312,7 +321,8 @@ export default function WeatherPage() {
       </div>
 
       <p className="text-xs text-white/20 mt-6 text-center">
-        Dados: Open-Meteo · Score penaliza nuvens (70%), vento (20%) e chuva (30%) das horas noturnas
+        Dados: Open-Meteo + efeméride · Score penaliza nuvens (70%), vento (20%), chuva (30%) e a Lua
+        (iluminação × tempo acima do horizonte) das horas noturnas
       </p>
     </div>
   )

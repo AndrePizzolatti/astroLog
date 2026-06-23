@@ -92,7 +92,23 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Diversos
 - [x] Catálogo DSO **offline** embutido (`src/lib/dso-catalog.ts`, ~60 objetos com viés pro Sul) —
       alimenta o seletor do planejador e as sugestões; serve de fallback ao SIMBAD/Sésame.
-- [ ] Score de céu v2 incluindo **Lua** (fase/iluminação) e seeing.
+- [x] **Score de céu v2 com a Lua** — FEITO. `weather.ts` cruza o score atmosférico com a Lua:
+      iluminação (fase, `getMoonPhase`) × fração da noite acima do horizonte (`astronomy-engine`,
+      com offset BRT), penalidade até 30 pts. Cartão de noite mostra fase/% e tempo no céu.
+      (Falta: seeing — Open-Meteo não dá direto; proxy por vento de altitude fica pra depois.)
+
+## Dívida técnica (de code review / design — sem impacto imediato)
+- [ ] **Camada semântica de cor:** unificar os dois verdes (`aurora` vs `green-400`) e os dois âmbares
+      (`star` vs `amber-400`) em tokens de papel (sucesso/atenção), em vez de cor crua espalhada.
+- [ ] **Fonte única da paleta:** hoje as cores vivem no `tailwind.config.ts` E nas CSS vars do
+      `globals.css` (podem divergir). Derivar uma da outra ou documentar a relação.
+- [ ] **Cores de filtro duplicadas:** `.filter-*` no `globals.css` e `FILTER_COLORS` no `utils.ts`
+      mapeiam a mesma coisa — consolidar numa fonte só.
+- [ ] **Escala de superfície:** padronizar os níveis ad-hoc (`bg-white/2../8`) em 2–3 tokens de surface.
+- [ ] **Ranking das sugestões (perf, #6 do review):** `quickMax` varre a noite (~40 amostras) × ~60
+      objetos = ~2,4k chamadas `Horizon` por troca de data. Ok hoje (memoizado, pequeno). Se o catálogo
+      crescer, usar passo mais grosso no ranking ou a fórmula O(1) de altitude no trânsito
+      (`90 − |lat − dec|`) em vez de amostrar.
 
 ## Feito recentemente (referência)
 - Import de pasta FITS + sequência N.I.N.A.; equipamento via header; Siril Lab (script + limpeza + SHO/PixelMath);
