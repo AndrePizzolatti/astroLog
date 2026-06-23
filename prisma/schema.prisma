@@ -71,9 +71,11 @@ model User {
   projects           ImagingProject[]
   observationLogs    ObservationLog[]
   alertSubscriptions AlertSubscription[]
+  alertNotifications AlertNotification[]
   followers          Follow[]            @relation("following")
   following          Follow[]            @relation("follower")
   calibrationFrames  CalibrationFrame[]
+  agentTokens        AgentToken[]
 }
 
 // ──────────────────────────────────────────
@@ -217,6 +219,7 @@ model ImagingProject {
   name                    String
   targetObject            String
   targetType              String?
+  captureType             CaptureType   @default(DSO)
   description             String?       @db.Text
   status                  ProjectStatus @default(IN_PROGRESS)
   visibility              Visibility    @default(PRIVATE)
@@ -257,6 +260,14 @@ model ImagingSession {
   binning          String?
   sensorTempC      Float?
   guidingRmsArcsec Float?
+  // Planetária (lucky imaging / vídeo de alto FPS)
+  captureSoftware  String?
+  videoFormat      String?
+  fps              Float?
+  exposureMs       Float?
+  totalFrames      Int?
+  stackedPct       Int?
+  roi              String?
   notes            String?  @db.Text
   rating           Int?
   createdAt        DateTime @default(now())
@@ -271,14 +282,15 @@ model ImagingSession {
 }
 
 model SessionFile {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   sessionId    String
   fileType     FileType
-  storagePath  String
+  provider     StorageProvider @default(SUPABASE)
+  storagePath  String          // chave Supabase, URL do Drive, ou caminho local — interpretado conforme provider
   originalName String
-  sizeBytes    BigInt
+  sizeBytes    BigInt?
   exifData     Json?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime        @default(now())
 
   session ImagingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -289,7 +301,8 @@ model ProjectFile {
   id          String          @id @default(cuid())
   projectId   String
   fileType    ProjectFileType
-  storagePath String
+  provider    StorageProvider @default(SUPABASE)
+  storagePath String          // chave Supabase, URL do Drive, ou caminho local — interpretado conforme provider
   label       String
   isFinal     Boolean         @default(false)
   sizeBytes   BigInt?
@@ -309,15 +322,16 @@ model CalibrationFrame {
   userId          String
   cameraId        String
   frameType       CalibrationType
+  provider        StorageProvider @default(SUPABASE)
   label           String
   exposureSeconds Float?
   gain            Int
   offset          Int?
   binning         String?
   sensorTempC     Float?
-  storagePath     String
+  storagePath     String          // chave Supabase, URL do Drive, ou caminho local
   originalName    String
-  sizeBytes       BigInt
+  sizeBytes       BigInt?
   frameCount      Int             @default(1)
   notes           String?         @db.Text
   createdAt       DateTime        @default(now())
@@ -378,6 +392,20 @@ model AlertSubscription {
   @@unique([userId, eventType])
 }
 
+// Registro de avisos já enviados — evita reenviar o mesmo evento a cada execução
+// do cron diário. eventKey identifica o evento (tipo:data:nome) ou o APOD do dia.
+model AlertNotification {
+  id       String   @id @default(cuid())
+  userId   String
+  eventKey String
+  sentAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventKey])
+  @@index([userId])
+}
+
 model Follow {
   followerId  String
   followingId String
@@ -390,8 +418,36 @@ model Follow {
 }
 
 // ──────────────────────────────────────────
+// AGENTE LOCAL (token de API para o agente Siril / watcher)
+// ──────────────────────────────────────────
+
+model AgentToken {
+  id         String    @id @default(cuid())
+  userId     String
+  label      String
+  token      String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────
 // ENUMS
 // ──────────────────────────────────────────
+
+enum StorageProvider {
+  SUPABASE   // upload no bucket do app
+  DRIVE      // referência a um arquivo/pasta do Google Drive (URL)
+  LOCAL      // caminho num disco local do usuário
+}
+
+enum CaptureType {
+  DSO        // céu profundo (lights/integração)
+  PLANETARY  // planetária (lucky imaging, vídeo de alto FPS)
+}
 
 enum ColorType {
   COLOR

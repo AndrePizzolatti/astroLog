@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Telescope, Camera, Compass, Layers, Zap, Package, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Telescope, Camera, Compass, Layers, Zap, Package, Pencil, Trash2, FileImage } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn, calculateTelescope, filterPillClass } from '@/lib/utils'
 import { TelescopeForm, type TelescopeInitial } from '@/components/equipment/telescope-form'
@@ -9,6 +9,7 @@ import { CameraForm,    type CameraInitial }    from '@/components/equipment/cam
 import { MountForm,     type MountInitial }     from '@/components/equipment/mount-form'
 import { SetupForm,     type SetupInitial }     from '@/components/equipment/setup-form'
 import { AccessoryForm, type AccessoryInitial, ACCESSORY_TYPE_LABELS } from '@/components/equipment/accessory-form'
+import { EquipmentFromFITS } from '@/components/equipment/equipment-from-fits'
 import { useToast } from '@/components/ui/toast'
 
 type Tab = 'setups' | 'telescopes' | 'cameras' | 'mounts' | 'accessories'
@@ -23,6 +24,7 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<any> }[] = [
 
 export default function EquipmentPage() {
   const [tab, setTab] = useState<Tab>('setups')
+  const [fromFits, setFromFits] = useState(false)
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -31,7 +33,12 @@ export default function EquipmentPage() {
           <h1 className="page-title">Meu Equipamento</h1>
           <p className="page-subtitle">Telescópios, câmeras, montagens e setups</p>
         </div>
+        <button className="btn-secondary flex items-center gap-2" onClick={() => setFromFits(true)}>
+          <FileImage className="w-4 h-4" /> Importar de frame FITS
+        </button>
       </div>
+
+      <EquipmentFromFITS open={fromFits} onOpenChange={setFromFits} />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-8 w-fit flex-wrap">

@@ -2,12 +2,17 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Telescope, Camera, Clock, Trash2, Pencil } from 'lucide-react'
+import { ArrowLeft, Plus, Telescope, Camera, Clock, Trash2, Pencil, FolderUp, FlaskConical, Film } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn, formatIntegration, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/lib/utils'
 import { SessionCard }  from '@/components/sessions/session-card'
 import { SessionForm }  from '@/components/sessions/session-form'
+import { PlanetarySessionForm } from '@/components/sessions/planetary-session-form'
+import { BulkFITSImport } from '@/components/sessions/bulk-fits-import'
+import { SirilLab }      from '@/components/projects/siril-lab'
+import { PlanetaryLab } from '@/components/projects/planetary-lab'
 import { TechSheet }    from '@/components/projects/tech-sheet'
+import { ProjectLinks } from '@/components/projects/project-files'
 import { ProjectForm, type ProjectInitial } from '@/components/projects/project-form'
 import { useToast }     from '@/components/ui/toast'
 
@@ -23,6 +28,9 @@ export default function ProjectDetailPage() {
   const id = params.id as string
 
   const [addSession,      setAddSession]      = useState(false)
+  const [bulkImport,      setBulkImport]      = useState(false)
+  const [sirilOpen,       setSirilOpen]       = useState(false)
+  const [planetaryOpen,   setPlanetaryOpen]   = useState(false)
   const [editProjectOpen, setEditProjectOpen] = useState(false)
   const [editingSession,  setEditingSession]  = useState<any | null>(null)
   const [cloningSession,  setCloningSession]  = useState<any | null>(null)
@@ -50,12 +58,18 @@ export default function ProjectDetailPage() {
   )
 
   const sessions = project.imagingSessions ?? []
+  const isPlanetary = (project as any).captureType === 'PLANETARY'
+  const projectFilters = [...new Set(sessions.flatMap(s => (s.filterUsed ? [s.filterUsed] : [])))]
+  const isOSCDefault = (project.setup?.camera as any)?.colorType
+    ? (project.setup!.camera as any).colorType === 'COLOR'
+    : true
 
   const projectInitial: ProjectInitial = {
     id:           project.id,
     name:         project.name,
     targetObject: project.targetObject,
     targetType:   project.targetType,
+    captureType:  (project as any).captureType,
     description:  project.description,
     setupId:      project.setupId,
     status:       project.status,
@@ -96,6 +110,15 @@ export default function ProjectDetailPage() {
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
+            {!isPlanetary ? (
+              <button onClick={() => setSirilOpen(true)} className="btn-secondary flex items-center gap-1.5">
+                <FlaskConical className="w-3.5 h-3.5" /> Siril
+              </button>
+            ) : (
+              <button onClick={() => setPlanetaryOpen(true)} className="btn-secondary flex items-center gap-1.5">
+                <Film className="w-3.5 h-3.5" /> Arquivos
+              </button>
+            )}
             <button onClick={() => setEditProjectOpen(true)} className="btn-secondary flex items-center gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Editar
             </button>
@@ -134,15 +157,25 @@ export default function ProjectDetailPage() {
       {/* Tech sheet */}
       <TechSheet projectId={id} />
 
+      {/* Files & links (Local / Drive / upload) */}
+      <ProjectLinks projectId={id} files={(project.projectFiles ?? []) as any} />
+
       {/* Sessions */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-white">
             Sessões <span className="text-white/30 font-normal text-sm">({sessions.length})</span>
           </h2>
-          <button className="btn-primary flex items-center gap-2 text-xs" onClick={() => setAddSession(true)}>
-            <Plus className="w-3.5 h-3.5" /> Nova Sessão
-          </button>
+          <div className="flex gap-2">
+            {!isPlanetary && (
+              <button className="btn-secondary flex items-center gap-2 text-xs" onClick={() => setBulkImport(true)}>
+                <FolderUp className="w-3.5 h-3.5" /> Importar pasta
+              </button>
+            )}
+            <button className="btn-primary flex items-center gap-2 text-xs" onClick={() => setAddSession(true)}>
+              <Plus className="w-3.5 h-3.5" /> Nova Sessão
+            </button>
+          </div>
         </div>
 
         {!sessions.length ? (
@@ -161,31 +194,56 @@ export default function ProjectDetailPage() {
                 key={s.id}
                 session={s as any}
                 onEdit={() => setEditingSession(s)}
-                onClone={() => setCloningSession({ ...s, id: undefined })}
+                onClone={isPlanetary ? undefined : () => setCloningSession({ ...s, id: undefined })}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* New session form */}
-      <SessionForm projectId={id} open={addSession} onOpenChange={setAddSession} />
+      {/* Session forms — planetária vs DSO */}
+      {isPlanetary ? (
+        <>
+          <PlanetarySessionForm projectId={id} open={addSession} onOpenChange={setAddSession} />
+          <PlanetarySessionForm
+            projectId={id}
+            open={!!editingSession}
+            onOpenChange={v => { if (!v) setEditingSession(null) }}
+            initial={editingSession ?? undefined}
+          />
+          <PlanetaryLab open={planetaryOpen} onOpenChange={setPlanetaryOpen} target={project.targetObject} />
+        </>
+      ) : (
+        <>
+          <SessionForm projectId={id} open={addSession} onOpenChange={setAddSession} />
 
-      {/* Edit session form */}
-      <SessionForm
-        projectId={id}
-        open={!!editingSession}
-        onOpenChange={v => { if (!v) setEditingSession(null) }}
-        initial={editingSession ?? undefined}
-      />
+          {/* Bulk FITS import */}
+          <BulkFITSImport projectId={id} open={bulkImport} onOpenChange={setBulkImport} />
 
-      {/* Clone (Continuar) session form */}
-      <SessionForm
-        projectId={id}
-        open={!!cloningSession}
-        onOpenChange={v => { if (!v) setCloningSession(null) }}
-        initial={cloningSession ?? undefined}
-      />
+          {/* Siril script lab */}
+          <SirilLab
+            open={sirilOpen}
+            onOpenChange={setSirilOpen}
+            target={project.targetObject}
+            isOSCDefault={isOSCDefault}
+            filters={projectFilters}
+          />
+
+          <SessionForm
+            projectId={id}
+            open={!!editingSession}
+            onOpenChange={v => { if (!v) setEditingSession(null) }}
+            initial={editingSession ?? undefined}
+          />
+
+          <SessionForm
+            projectId={id}
+            open={!!cloningSession}
+            onOpenChange={v => { if (!v) setCloningSession(null) }}
+            initial={cloningSession ?? undefined}
+          />
+        </>
+      )}
 
       {/* Edit project form */}
       <ProjectForm

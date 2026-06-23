@@ -34,6 +34,7 @@
     "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.0.0",
     "@types/leaflet": "^1.9.21",
+    "astronomy-engine": "^2.1.19",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "leaflet": "^1.9.4",

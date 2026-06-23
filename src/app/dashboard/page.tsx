@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, FolderOpen, Layers, Camera, Clock, CalendarDays, Eye, Cloud, CloudRain, TrendingUp } from 'lucide-react'
+import { Plus, Search, FolderOpen, Layers, Camera, Clock, CalendarDays, Eye, Cloud, CloudRain, TrendingUp, FileJson } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { ProjectCard }  from '@/components/projects/project-card'
 import { ProjectForm }  from '@/components/projects/project-form'
+import { NINASequenceImport } from '@/components/projects/nina-sequence-import'
 import { cn } from '@/lib/utils'
 
 const STATUS_FILTERS = [
@@ -41,21 +42,23 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const [search, setSearch]             = useState('')
   const [createOpen, setCreateOpen]     = useState(false)
+  const [ninaOpen, setNinaOpen]         = useState(false)
+
+  const thisYear = new Date().getFullYear()
 
   const { data: projects, isLoading } = api.projects.list.useQuery(
     statusFilter ? { status: statusFilter as any } : undefined,
   )
-  const { data: weather } = api.weather.forecast.useQuery()
+  const { data: weather }   = api.weather.forecast.useQuery()
+  const { data: yearStats } = api.projects.statsByYear.useQuery({ year: thisYear })
 
   // Stats computed from projects list (all projects, not filtered)
   const allProjects   = projects ?? []
   const totalSessions = allProjects.reduce((s, p) => s + p._count.imagingSessions, 0)
   const totalLights   = allProjects.reduce((s, p) => s + p.totalLights, 0)
   const totalHours    = allProjects.reduce((s, p) => s + p.totalIntegrationMinutes, 0) / 60
-  const thisYear      = new Date().getFullYear()
-  const hoursThisYear = allProjects
-    .filter(p => new Date(p.updatedAt).getFullYear() === thisYear)
-    .reduce((s, p) => s + p.totalIntegrationMinutes, 0) / 60
+  // Integração do ano vem das sessões (observedAt), não de updatedAt do projeto.
+  const hoursThisYear = yearStats?.integrationHours ?? 0
 
   const filtered = projects?.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -71,9 +74,14 @@ export default function DashboardPage() {
           <h1 className="page-title">Meus Projetos</h1>
           <p className="page-subtitle">Gerencie seus projetos de astrofotografia</p>
         </div>
-        <button className="btn-primary flex items-center gap-2" onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4" /> Novo Projeto
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary flex items-center gap-2" onClick={() => setNinaOpen(true)}>
+            <FileJson className="w-4 h-4" /> Importar N.I.N.A.
+          </button>
+          <button className="btn-primary flex items-center gap-2" onClick={() => setCreateOpen(true)}>
+            <Plus className="w-4 h-4" /> Novo Projeto
+          </button>
+        </div>
       </div>
 
       {/* Stats strip */}
@@ -233,6 +241,7 @@ export default function DashboardPage() {
       })()}
 
       <ProjectForm open={createOpen} onOpenChange={setCreateOpen} />
+      <NINASequenceImport open={ninaOpen} onOpenChange={setNinaOpen} />
     </div>
   )
 }

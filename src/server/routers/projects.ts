@@ -29,6 +29,66 @@ export const projectsRouter = router({
       }),
     ),
 
+  // Integração agregada por ano a partir das SESSÕES (observedAt),
+  // não de updatedAt do projeto. Soma lightsCount × exposureSeconds das
+  // sessões cujo observedAt cai no ano pedido.
+  statsByYear: protectedProcedure
+    .input(z.object({
+      year: z.number().int().min(1970).max(3000).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const year  = input?.year ?? new Date().getFullYear()
+      const start = new Date(year, 0, 1)
+      const end   = new Date(year + 1, 0, 1)
+
+      const sessions = await ctx.prisma.imagingSession.findMany({
+        where: {
+          project:    { userId: ctx.session.user.id },
+          observedAt: { gte: start, lt: end },
+        },
+        select: { lightsCount: true, exposureSeconds: true },
+      })
+
+      const integrationSeconds = sessions.reduce(
+        (sum, s) => sum + (s.lightsCount ?? 0) * (s.exposureSeconds ?? 0),
+        0,
+      )
+
+      return {
+        year,
+        sessionCount:       sessions.length,
+        totalLights:        sessions.reduce((sum, s) => sum + (s.lightsCount ?? 0), 0),
+        integrationMinutes: integrationSeconds / 60,
+        integrationHours:   integrationSeconds / 3600,
+      }
+    }),
+
+  // Portfólio: projetos com imagem de capa (final), pra galeria visual.
+  gallery: protectedProcedure.query(async ({ ctx }) => {
+    const projects = await ctx.prisma.imagingProject.findMany({
+      where: { userId: ctx.session.user.id },
+      include: {
+        projectFiles: {
+          where:   { OR: [{ isFinal: true }, { fileType: { in: ['FINAL_JPEG', 'FINAL_TIFF'] } }] },
+          orderBy: [{ isFinal: 'desc' }, { createdAt: 'desc' }],
+          take:    1,
+          select:  { provider: true, storagePath: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+    return projects.map(p => ({
+      id:                      p.id,
+      name:                    p.name,
+      targetObject:            p.targetObject,
+      targetType:              p.targetType,
+      status:                  p.status,
+      totalIntegrationMinutes: p.totalIntegrationMinutes,
+      totalLights:             p.totalLights,
+      cover:                   p.projectFiles[0] ?? null,
+    }))
+  }),
+
   byId: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -62,6 +122,7 @@ export const projectsRouter = router({
       name:         z.string().min(2),
       targetObject: z.string().min(1),
       targetType:   z.string().optional(),
+      captureType:  z.enum(['DSO','PLANETARY']).default('DSO'),
       description:  z.string().optional(),
       setupId:      z.string().optional(),
       status:       z.enum(['PLANNING','IN_PROGRESS','READY_TO_PROCESS','PROCESSING','COMPLETED','ARCHIVED']).default('IN_PROGRESS'),
@@ -93,6 +154,7 @@ export const projectsRouter = router({
       name:         z.string().min(2).optional(),
       targetObject: z.string().min(1).optional(),
       targetType:   z.string().optional(),
+      captureType:  z.enum(['DSO','PLANETARY']).optional(),
       description:  z.string().optional(),
       setupId:      z.string().nullable().optional(),
       status:       z.enum(['PLANNING','IN_PROGRESS','READY_TO_PROCESS','PROCESSING','COMPLETED','ARCHIVED']).optional(),
@@ -172,8 +234,9 @@ export const projectsRouter = router({
     .input(z.object({
       projectId:   z.string(),
       fileType:    z.enum(['STACK','MASTER_DARK','MASTER_FLAT','FINAL_JPEG','FINAL_TIFF','OTHER']),
-      storagePath: z.string(),
-      label:       z.string(),
+      provider:    z.enum(['SUPABASE','DRIVE','LOCAL']).default('SUPABASE'),
+      storagePath: z.string().min(1),   // chave Supabase, URL do Drive, ou caminho local
+      label:       z.string().min(1),
       isFinal:     z.boolean().default(false),
       sizeBytes:   z.number().int().positive().optional(),
     }))
@@ -185,5 +248,40 @@ export const projectsRouter = router({
           sizeBytes: input.sizeBytes ? BigInt(input.sizeBytes) : null,
         },
       })
+    }),
+
+  deleteFile: protectedProcedure
+    .input(z.object({ fileId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const file = await ctx.prisma.projectFile.findUnique({
+        where:   { id: input.fileId },
+        include: { project: { select: { userId: true } } },
+      })
+      if (!file || file.project.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: 'NOT_FOUND' })
+      }
+      await ctx.prisma.projectFile.delete({ where: { id: input.fileId } })
+      return { provider: file.provider, storagePath: file.storagePath }
+    }),
+
+  // Edita o registro de um arquivo (ex.: quando você move o arquivo de lugar)
+  updateFile: protectedProcedure
+    .input(z.object({
+      fileId:      z.string(),
+      label:       z.string().min(1).optional(),
+      provider:    z.enum(['SUPABASE', 'DRIVE', 'LOCAL']).optional(),
+      storagePath: z.string().min(1).optional(),
+      isFinal:     z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { fileId, ...data } = input
+      const file = await ctx.prisma.projectFile.findUnique({
+        where:   { id: fileId },
+        include: { project: { select: { userId: true } } },
+      })
+      if (!file || file.project.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: 'NOT_FOUND' })
+      }
+      return ctx.prisma.projectFile.update({ where: { id: fileId }, data })
     }),
 })

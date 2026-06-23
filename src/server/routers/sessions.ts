@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
+import { autoMatchCalibration } from './calibration'
 
 async function assertSessionOwnership(ctx: any, sessionId: string) {
   const session = await ctx.prisma.imagingSession.findFirst({
@@ -67,6 +68,14 @@ export const sessionsRouter = router({
       binning:         z.string().optional(),
       sensorTempC:     z.number().optional(),
       guidingRmsArcsec: z.number().positive().optional(),
+      // Planetária
+      captureSoftware: z.string().optional(),
+      videoFormat:     z.string().optional(),
+      fps:             z.number().positive().optional(),
+      exposureMs:      z.number().positive().optional(),
+      totalFrames:     z.number().int().min(0).optional(),
+      stackedPct:      z.number().int().min(0).max(100).optional(),
+      roi:             z.string().optional(),
       notes:           z.string().optional(),
       rating:          z.number().int().min(1).max(5).optional(),
     }))
@@ -92,6 +101,63 @@ export const sessionsRouter = router({
       return session
     }),
 
+  // Cria várias sessões de uma vez (import de pasta de FITS / sequência N.I.N.A.)
+  bulkCreate: protectedProcedure
+    .input(z.object({
+      projectId: z.string(),
+      setupId:   z.string().optional(),
+      sessions: z.array(z.object({
+        observedAt:      z.string().datetime(),
+        filterUsed:      z.string().optional(),
+        lightsCount:     z.number().int().min(0).default(0),
+        exposureSeconds: z.number().positive().optional(),
+        gain:            z.number().int().optional(),
+        offset:          z.number().int().optional(),
+        binning:         z.string().optional(),
+        sensorTempC:     z.number().optional(),
+        notes:           z.string().optional(),
+      })).min(1).max(500),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.imagingProject.findFirst({
+        where: { id: input.projectId, userId: ctx.session.user.id },
+      })
+      if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
+
+      let cameraId: string | undefined
+      if (input.setupId) {
+        const setup = await ctx.prisma.equipmentSetup.findFirst({
+          where:  { id: input.setupId, userId: ctx.session.user.id },
+          select: { id: true, cameraId: true },
+        })
+        if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
+        cameraId = setup.cameraId
+      }
+
+      // Cria individualmente (precisamos dos ids para o auto-link da calibração)
+      let autoLinked = 0
+      for (const s of input.sessions) {
+        const created = await ctx.prisma.imagingSession.create({
+          data:   { projectId: input.projectId, setupId: input.setupId, ...s, observedAt: new Date(s.observedAt) },
+          select: { id: true },
+        })
+        if (cameraId) {
+          const matches = await autoMatchCalibration(ctx.prisma, ctx.session.user.id, {
+            cameraId, gain: s.gain, exposureSeconds: s.exposureSeconds, sensorTempC: s.sensorTempC,
+          })
+          for (const cfId of matches) {
+            await ctx.prisma.calibrationFrameUsage.create({
+              data: { sessionId: created.id, calibrationFrameId: cfId },
+            })
+            autoLinked++
+          }
+        }
+      }
+
+      await recalcProjectMetrics(ctx, input.projectId)
+      return { count: input.sessions.length, autoLinked }
+    }),
+
   update: protectedProcedure
     .input(z.object({
       id:              z.string(),
@@ -111,6 +177,14 @@ export const sessionsRouter = router({
       binning:         z.string().nullable().optional(),
       sensorTempC:     z.number().nullable().optional(),
       guidingRmsArcsec: z.number().positive().nullable().optional(),
+      // Planetária
+      captureSoftware: z.string().nullable().optional(),
+      videoFormat:     z.string().nullable().optional(),
+      fps:             z.number().positive().nullable().optional(),
+      exposureMs:      z.number().positive().nullable().optional(),
+      totalFrames:     z.number().int().min(0).nullable().optional(),
+      stackedPct:      z.number().int().min(0).max(100).nullable().optional(),
+      roi:             z.string().nullable().optional(),
       notes:           z.string().nullable().optional(),
       rating:          z.number().int().min(1).max(5).nullable().optional(),
     }))
