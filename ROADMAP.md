@@ -8,8 +8,9 @@ A ideia: introduzir uma **efeméride** cedo (ex.: `astronomy-engine`, MIT, offli
 destrava planejador, calendário, visibilidade de planetas e alertas calculados de uma vez.
 
 1. [x] **Efeméride + Planejador de sessão** — FEITO. `astronomy-engine` em `src/lib/sky.ts`;
-   `/dashboard/planner` com curva de altitude, trânsito, horas visíveis, Lua (iluminação/separação)
-   e ranking de "melhores alvos da noite". (Falta: FOV do setup sobre o alvo.)
+   `/dashboard/planner` com curva de altitude, trânsito, horas visíveis, Lua (iluminação/separação),
+   ranking dos projetos e **catálogo DSO offline + sugestões "bons alvos pra esta noite"** (ranqueia o
+   catálogo pela altitude/horas/distância da Lua). (Falta: FOV do setup sobre o alvo.)
 2. [x] **Calendário astronômico** — FEITO. `/dashboard/calendar`: grade do mês (fase da Lua +
    eventos), painel do dia (eventos + visibilidade dos planetas com janela de/até e altitude máx),
    lista de eventos do mês. `planetVisibility` em `sky.ts`.
@@ -89,7 +90,8 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 - [ ] Limpeza opcional dos **intermediários de pós-processamento** (PixInsight) — fora por variar muito.
 
 ## Diversos
-- [ ] Catálogo DSO **offline** embutido (fallback quando o SIMBAD/Sésame estiver fora).
+- [x] Catálogo DSO **offline** embutido (`src/lib/dso-catalog.ts`, ~60 objetos com viés pro Sul) —
+      alimenta o seletor do planejador e as sugestões; serve de fallback ao SIMBAD/Sésame.
 - [ ] Score de céu v2 incluindo **Lua** (fase/iluminação) e seeing.
 
 ## Feito recentemente (referência)
@@ -97,4 +99,5 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
   agente local (processa/limpa/arquiva, multi-noite dinâmico); armazenamento Local/Drive; auto-link da biblioteca;
   motor de alertas (eventos no app); autocomplete de alvo + AR/Dec via SIMBAD/Sésame;
   import de metadados planetários (SER/FireCapture) + brilho de Vênus; alertas por e-mail (Resend) + cron diário;
-  **gestão de arquivos planetários (script PowerShell: inventário/limpeza/arquivamento/publicação)**.
+  gestão de arquivos planetários (script PowerShell: inventário/limpeza/arquivamento/publicação);
+  **catálogo DSO offline + sugestões "bons alvos pra esta noite" no planejador**.

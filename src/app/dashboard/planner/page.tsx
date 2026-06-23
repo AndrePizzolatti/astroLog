@@ -4,10 +4,11 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip } from 'recharts'
-import { CalendarDays, MapPin, Moon, Search, Loader2, ArrowUp, Clock } from 'lucide-react'
+import { CalendarDays, MapPin, Moon, Search, Loader2, ArrowUp, Clock, Sparkles, Telescope } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
-import { nightBounds, planTarget, quickMax } from '@/lib/sky'
+import { nightBounds, planTarget, quickMax, moonContext, separation } from '@/lib/sky'
+import { DSO_CATALOG } from '@/lib/dso-catalog'
 import { useToast } from '@/components/ui/toast'
 
 const DEFAULT_LAT = -27.6, DEFAULT_LON = -48.5
@@ -39,8 +40,10 @@ export default function PlannerPage() {
 
   // alvo efetivo
   const proj = withCoords.find(p => p.id === targetKey)
+  const catSel = targetKey.startsWith('cat:') ? DSO_CATALOG.find(c => c.id === targetKey.slice(4)) : null
   const target = targetKey === '__custom'
     ? (custom ? { raH: custom.raH, decDeg: custom.decDeg, name: customName || 'Alvo' } : null)
+    : catSel ? { raH: catSel.raHours, decDeg: catSel.decDeg, name: `${catSel.common} (${catSel.name})` }
     : proj ? { raH: proj.raHours!, decDeg: proj.decDegrees!, name: proj.name } : null
 
   const plan = useMemo(
@@ -54,6 +57,24 @@ export default function PlannerPage() {
       .sort((a, b) => b.maxAlt - a.maxAlt),
     [withCoords, lat, lon, bounds], // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  // Sugestões do céu: ranqueia o catálogo pela altitude/horas visíveis da noite,
+  // penalizando alvos perto de uma Lua iluminada. Top 8 bem posicionados.
+  const suggestions = useMemo(() => {
+    const moon = moonContext(bounds, lat, lon)
+    return DSO_CATALOG
+      .map(o => {
+        const q = quickMax(o.raHours, o.decDeg, lat, lon, bounds, 30)
+        const moonSep = Math.round(separation(o.raHours, o.decDeg, moon.raH, moon.decDeg))
+        const moonBonus = moonSep > 70 ? 8 : (moonSep < 30 && moon.illum > 50) ? -30 : (moonSep < 45 && moon.illum > 70) ? -15 : 0
+        const brightBonus = o.mag != null && o.mag <= 7 ? 4 : 0
+        const score = q.maxAlt + q.hoursVisible * 4 + moonBonus + brightBonus
+        return { o, ...q, moonSep, moonIllum: moon.illum, score }
+      })
+      .filter(x => x.maxAlt >= 35)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+  }, [bounds, lat, lon])
 
   async function doResolve() {
     if (!customName.trim()) { toast('Digite o alvo', 'error'); return }
@@ -94,7 +115,14 @@ export default function PlannerPage() {
           <label className="input-label">Alvo</label>
           <select value={targetKey} onChange={e => setKey(e.target.value)} className="input h-9 text-sm">
             <option value="">Selecionar…</option>
-            {withCoords.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {withCoords.length > 0 && (
+              <optgroup label="Meus projetos">
+                {withCoords.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </optgroup>
+            )}
+            <optgroup label="Catálogo">
+              {DSO_CATALOG.map(o => <option key={o.id} value={`cat:${o.id}`}>{o.name} — {o.common}</option>)}
+            </optgroup>
             <option value="__custom">Outro (buscar)…</option>
           </select>
         </div>
@@ -115,8 +143,9 @@ export default function PlannerPage() {
       </div>
 
       {!target ? (
-        <div className="card p-12 text-center text-sm text-white/40">
-          Escolha um alvo {withCoords.length === 0 && '(seus projetos precisam de AR/Dec — preencha no projeto com o botão Resolver)'}.
+        <div className="card p-8 text-center text-sm text-white/40">
+          <Sparkles className="w-5 h-5 mx-auto mb-2 text-cosmos-400/60" />
+          Escolha um alvo no seletor — ou clique numa das <strong className="text-white/60">sugestões pra esta noite</strong> abaixo. 👇
         </div>
       ) : plan && (
         <>
@@ -152,10 +181,48 @@ export default function PlannerPage() {
         </>
       )}
 
-      {/* Melhores alvos da noite */}
+      {/* Sugestões do catálogo pra esta noite */}
+      {suggestions.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-1">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cosmos-400" /> Bons alvos pra esta noite
+            </h2>
+            <span className="text-[11px] text-white/30 flex items-center gap-1">
+              <Moon className="w-3 h-3" /> Lua {suggestions[0].moonIllum}% — {suggestions[0].moonIllum > 55 ? 'priorizando alvos longe dela' : 'pouca interferência'}
+            </span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {suggestions.map(({ o, maxAlt, transit, hoursVisible, moonSep, moonIllum }) => {
+              const moonClose = moonSep < 45 && moonIllum > 60
+              return (
+                <button key={o.id} type="button" onClick={() => { setKey(`cat:${o.id}`); setCustom(null) }}
+                  className="text-left flex items-center gap-3 p-2.5 rounded-lg bg-white/3 border border-white/8 hover:bg-white/5 hover:border-white/15 transition-colors">
+                  <span className={cn('text-sm font-mono w-12 shrink-0 text-center', maxAlt >= 55 ? 'text-aurora-300' : maxAlt >= 40 ? 'text-green-400' : 'text-white/50')}>
+                    {Math.round(maxAlt)}°
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-white/85 truncate">{o.common}</p>
+                    <p className="text-[11px] text-white/35 truncate">{o.name} · {o.type}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[11px] text-white/45 mono">{transit ? format(transit, 'HH:mm') : ''} · {hoursVisible}h</p>
+                    <p className={cn('text-[10px] flex items-center gap-0.5 justify-end', moonClose ? 'text-amber-400/80' : 'text-white/25')}>
+                      <Moon className="w-2.5 h-2.5" /> {moonSep}°{moonClose ? ' perto' : ''}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-[11px] text-white/25 mt-3">Ranqueado por altitude, horas acima de 30° e distância da Lua. Clique pra ver a curva da noite.</p>
+        </div>
+      )}
+
+      {/* Seus projetos da noite */}
       {ranking.length > 0 && (
         <div className="card p-5">
-          <h2 className="text-sm font-semibold text-white mb-3">Melhores alvos nesta noite</h2>
+          <h2 className="text-sm font-semibold text-white mb-3">Seus projetos nesta noite</h2>
           <div className="space-y-1.5">
             {ranking.map(({ p, maxAlt, transit, hoursVisible }) => (
               <Link key={p.id} href={`/dashboard/projects/${p.id}`}

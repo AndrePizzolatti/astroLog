@@ -113,6 +113,16 @@ export function planetVisibility(date: Date, lat: number, lon: number, bounds?: 
   })
 }
 
+// Posição/iluminação da Lua no meio da noite — barata, para ranquear vários alvos pela
+// separação da Lua sem recalcular por alvo.
+export function moonContext(bounds: NightBounds, lat: number, lon: number): { raH: number; decDeg: number; illum: number } {
+  const o = obs(lat, lon)
+  const when = new Date((bounds.sunset.getTime() + bounds.sunrise.getTime()) / 2)
+  const eq = Astronomy.Equator(Astronomy.Body.Moon, when, o, true, true)
+  const illum = Math.round(Astronomy.Illumination(Astronomy.Body.Moon, when).phase_fraction * 100)
+  return { raH: eq.ra, decDeg: eq.dec, illum }
+}
+
 // Versão leve para ranquear vários alvos: só máximo de altitude + trânsito + horas visíveis.
 export function quickMax(
   raH: number, decDeg: number, lat: number, lon: number, bounds: NightBounds, minAlt = 30,
