@@ -73,7 +73,9 @@ export async function fetchApod(): Promise<ApodData | null> {
 }
 
 // ── Render do e-mail ───────────────────────────────────────────────────────────
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const esc = (s: string) => s
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
 export function renderDigestEmail(opts: {
   items: DigestItem[]

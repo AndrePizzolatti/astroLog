@@ -81,8 +81,12 @@ if ($Archive) {
     Write-Host ("[Archive] {0} bruto(s), ~{1:N1} GB -> {2}" -f $rawKeep.Count, $rawGB, $dest)
     if (-not $dry -and $rawKeep.Count -gt 0) {
       New-Item -ItemType Directory -Force -Path $dest | Out-Null
-      foreach ($r in $rawKeep) { Move-Item -LiteralPath $r.FullName -Destination $dest -Force }
-      Write-Host ("  -> movido (~{0:N1} GB liberados na origem)" -f $rawGB)
+      foreach ($r in $rawKeep) {
+        $tgt = Join-Path $dest $r.Name
+        if (Test-Path -LiteralPath $tgt) { Write-Warning "  ja existe no destino, NAO movido (renomeie e refaca): $($r.Name)"; continue }
+        Move-Item -LiteralPath $r.FullName -Destination $dest
+      }
+      Write-Host ("  -> arquivado (~{0:N1} GB liberados na origem)" -f $rawGB)
     }
   }
 }
@@ -98,7 +102,11 @@ if ($Publish) {
     Write-Host ("[Publish] {0} imagem(ns) -> {1}" -f $imgs.Count, $dest)
     if (-not $dry -and $imgs.Count -gt 0) {
       New-Item -ItemType Directory -Force -Path $dest | Out-Null
-      foreach ($im in $imgs) { Copy-Item -LiteralPath $im.FullName -Destination $dest -Force }
+      foreach ($im in $imgs) {
+        $tgt = Join-Path $dest $im.Name
+        if (Test-Path -LiteralPath $tgt) { Write-Warning "  ja existe no destino, pulado: $($im.Name)"; continue }
+        Copy-Item -LiteralPath $im.FullName -Destination $dest
+      }
       Write-Host "  -> copiado (registre o final em Arquivos & Links do projeto)"
     }
   }
