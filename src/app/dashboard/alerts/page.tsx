@@ -11,6 +11,7 @@ const EVENT_META: Record<string, { icon: React.ComponentType<any>; color: string
   ECLIPSE_SOLAR:     { icon: Sun,      color: 'text-amber-400' },
   ECLIPSE_LUNAR:     { icon: Moon,     color: 'text-cosmos-300' },
   PLANET_OPPOSITION: { icon: Orbit,    color: 'text-nebula-400' },
+  CONJUNCTION:       { icon: Telescope, color: 'text-blue-300' },
   NEW_MOON:          { icon: Moon,     color: 'text-white/50' },
   FULL_MOON:         { icon: Moon,     color: 'text-amber-300' },
 }

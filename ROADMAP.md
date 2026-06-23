@@ -32,15 +32,18 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Alertas
 - [x] Eclipses e oposições **calculados** (astronomy-engine) + **APOD** do dia na página.
 - [x] **Elongações** de Mercúrio/Vênus (máxima elongação) — entram como evento.
-- [ ] **Conjunções** planeta-planeta (amostragem de aproximação).
-- [ ] **Visibilidade local** do eclipse solar (SearchLocalSolarEclipse com a localização).
+- [x] **Conjunções** planeta-planeta — FEITO. Varredura diária da separação geocêntrica (GeoVector +
+      AngleBetween) dos pares de planetas; mínimo local ≤3° vira evento `CONJUNCTION` com a separação.
+- [x] **Visibilidade local** do eclipse solar — FEITO. Com a localização do usuário, usa
+      `SearchLocalSolarEclipse` (% de cobertura daqui) em vez do eclipse global. `upcomingEvents` aceita
+      `observer?`; alerts router e calendário passam lat/lon. (Digest de e-mail segue global — sem obs.)
 - [x] **Entrega por e-mail + cron** — FEITO. `/api/cron/alerts` (Vercel Cron diário) → `processAlertDigests`
       compara eventos com as inscrições (e o `advanceHours`), deduplica em `AlertNotification` e envia um
       resumo por e-mail via Resend (`src/lib/email.ts`). APOD opcional no resumo se inscrito.
       Limitação do free tier do Resend: o remetente `onboarding@resend.dev` só entrega ao e-mail dono da
       conta — pra outros destinatários, verificar um domínio e trocar `EMAIL_FROM`.
-- [ ] **ISS, cometas, conjunções** — ficaram de fora do motor v1 (precisam de API/efeméride
-      externa: passes da ISS por localização, cometas ativos, conjunções calculadas).
+- [ ] **ISS e cometas** — precisam de fonte externa (passes da ISS por localização via TLE/N2YO;
+      cometas ativos via catálogo/efeméride). Conjunções já entraram (calculadas).
 - [ ] **APOD** — feed da imagem astronômica do dia (NASA APOD API, `NASA_API_KEY` já no .env).
 - [ ] Filtrar eclipses por **visibilidade na localização** do usuário (hoje só mostra a data + região geral).
 - [ ] Manter a tabela curada de eclipses/oposições atualizada (`src/lib/astro-events.ts`).
