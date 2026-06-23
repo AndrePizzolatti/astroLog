@@ -7,7 +7,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, MapPin, Sparkles, Sun, Moon, Orbit } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, Sparkles, Sun, Moon, Orbit, Telescope } from 'lucide-react'
 import { api } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { getMoonPhase } from '@/lib/moon'
@@ -24,11 +24,11 @@ function scoreColor(s: number): string {
 
 const TYPE_DOT: Record<string, string> = {
   METEOR_SHOWER: 'bg-star-400', ECLIPSE_SOLAR: 'bg-amber-400',
-  ECLIPSE_LUNAR: 'bg-cosmos-300', PLANET_OPPOSITION: 'bg-nebula-400',
+  ECLIPSE_LUNAR: 'bg-cosmos-300', PLANET_OPPOSITION: 'bg-nebula-400', CONJUNCTION: 'bg-blue-300',
 }
 const TYPE_ICON: Record<string, React.ComponentType<any>> = {
   METEOR_SHOWER: Sparkles, ECLIPSE_SOLAR: Sun, ECLIPSE_LUNAR: Moon,
-  PLANET_OPPOSITION: Orbit, NEW_MOON: Moon, FULL_MOON: Moon,
+  PLANET_OPPOSITION: Orbit, NEW_MOON: Moon, FULL_MOON: Moon, CONJUNCTION: Telescope,
 }
 
 export default function CalendarPage() {
@@ -54,18 +54,18 @@ export default function CalendarPage() {
   // Eventos do intervalo visível, agrupados por dia
   const eventsByDay = useMemo(() => {
     const span = differenceInCalendarDays(gridEnd, gridStart) + 1
-    const evs = upcomingEvents(gridStart, span)
+    const evs = upcomingEvents(gridStart, span, { lat, lon })
     const map = new Map<string, AstroEvent[]>()
     for (const e of evs) {
       const arr = map.get(e.date) ?? []
       arr.push(e); map.set(e.date, arr)
     }
     return map
-  }, [gridStart.getTime(), gridEnd.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gridStart.getTime(), gridEnd.getTime(), lat, lon]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthEvents = useMemo(
-    () => upcomingEvents(startOfMonth(view), 31).filter(e => isSameMonth(new Date(e.date + 'T12:00:00'), view)),
-    [view],
+    () => upcomingEvents(startOfMonth(view), 31, { lat, lon }).filter(e => isSameMonth(new Date(e.date + 'T12:00:00'), view)),
+    [view, lat, lon],
   )
 
   const dayKey = (d: Date) => format(d, 'yyyy-MM-dd')

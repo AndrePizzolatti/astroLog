@@ -23,8 +23,26 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
    (`advanceHours`), evita reenvio (`AlertNotification`) e envia via Resend. APOD opcional no resumo.
 5. [x] **Suporte a planetária** — FEITO. `captureType` (DSO/Planetária) no projeto; sessão
    planetária com fps/exposição-ms/total de frames/% empilhado/ROI/software; form e card próprios.
-6. **Polimento** — thumbnails por sessão / thumb próprio; score de céu v2 com Lua; catálogo DSO offline.
+6. [x] **Polimento** — FEITO (essencial): thumbnail por sessão, score de céu v2 (DSO/planetária + seeing
+   7Timer + transparência), catálogo DSO offline, FOV no planejador, calendário×score, alertas v2.
 7. **Parte social** — páginas públicas + seguir (maior escopo, menor urgência pra uso pessoal).
+8. **Assistente de astronomia (IA)** — ideia nova; ver seção própria abaixo.
+
+---
+
+## Próxima fase (o que falta + ordem sugerida)
+
+Tier 1 e 2 estão fechados. Restam itens maiores/opcionais — ordem por valor × esforço pra uso pessoal:
+
+1. **Assistente de astronomia (IA)** — alto valor e aproveita todo o contexto que já existe (equipamento,
+   local, projetos, efeméride, previsão). Precisa de chave de API. Ver seção própria.
+2. **Cometas (lista curada)** — pequeno; completa os "astros". Lista manual de cometas notáveis
+   (designação, periélio, magnitude de pico) como evento — não dá pra calcular tudo (catálogo muda).
+3. **Planejador: exposição/integração recomendada + rotação da câmera no FOV** — refina a ferramenta mais usada.
+4. **Upload real pro Drive** (`drive.file`) — tira o atrito de arrastar arquivo na mão; muda escopo OAuth.
+5. **Parte social** (página pública + seguir) — escopo grande, urgência baixa pra uso pessoal.
+6. **ISS** (passes por localização via API externa, ex.: N2YO) — legal, mas menor prioridade.
+7. **Dívida técnica** (cores semânticas, fonte única da paleta, etc.) — oportunística, ao tocar nas telas.
 
 ---
 
@@ -32,15 +50,18 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Alertas
 - [x] Eclipses e oposições **calculados** (astronomy-engine) + **APOD** do dia na página.
 - [x] **Elongações** de Mercúrio/Vênus (máxima elongação) — entram como evento.
-- [ ] **Conjunções** planeta-planeta (amostragem de aproximação).
-- [ ] **Visibilidade local** do eclipse solar (SearchLocalSolarEclipse com a localização).
+- [x] **Conjunções** planeta-planeta — FEITO. Varredura diária da separação geocêntrica (GeoVector +
+      AngleBetween) dos pares de planetas; mínimo local ≤3° vira evento `CONJUNCTION` com a separação.
+- [x] **Visibilidade local** do eclipse solar — FEITO. Com a localização do usuário, usa
+      `SearchLocalSolarEclipse` (% de cobertura daqui) em vez do eclipse global. `upcomingEvents` aceita
+      `observer?`; alerts router e calendário passam lat/lon. (Digest de e-mail segue global — sem obs.)
 - [x] **Entrega por e-mail + cron** — FEITO. `/api/cron/alerts` (Vercel Cron diário) → `processAlertDigests`
       compara eventos com as inscrições (e o `advanceHours`), deduplica em `AlertNotification` e envia um
       resumo por e-mail via Resend (`src/lib/email.ts`). APOD opcional no resumo se inscrito.
       Limitação do free tier do Resend: o remetente `onboarding@resend.dev` só entrega ao e-mail dono da
       conta — pra outros destinatários, verificar um domínio e trocar `EMAIL_FROM`.
-- [ ] **ISS, cometas, conjunções** — ficaram de fora do motor v1 (precisam de API/efeméride
-      externa: passes da ISS por localização, cometas ativos, conjunções calculadas).
+- [ ] **ISS e cometas** — precisam de fonte externa (passes da ISS por localização via TLE/N2YO;
+      cometas ativos via catálogo/efeméride). Conjunções já entraram (calculadas).
 - [ ] **APOD** — feed da imagem astronômica do dia (NASA APOD API, `NASA_API_KEY` já no .env).
 - [ ] Filtrar eclipses por **visibilidade na localização** do usuário (hoje só mostra a data + região geral).
 - [ ] Manter a tabela curada de eclipses/oposições atualizada (`src/lib/astro-events.ts`).
@@ -77,13 +98,30 @@ destrava planejador, calendário, visibilidade de planetas e alertas calculados 
 ## Visual / portfólio
 - [x] **Portfólio/galeria** — feito (`/dashboard/portfolio`), usa o thumbnail do Drive derivado do
       link da imagem final. LOCAL mostra placeholder.
-- [ ] Pendências: thumbnail por **sessão** (não só projeto); o thumbnail do Drive só carrega se o
-      arquivo estiver compartilhado ("qualquer pessoa com link") ou logado na conta — talvez gerar/subir
-      um thumb pequeno próprio pra garantir exibição.
+- [x] **Thumbnail por sessão** — FEITO. `ImagingSession.thumbnailUrl` (link de imagem/Drive); campo
+      "Resultado / capa" nos forms DSO e planetária; capa no topo do card via `imageThumbUrl` (reusa o
+      thumbnail do Drive). Útil sobretudo na planetária (resultado é por sessão). **Migration
+      `20260623120000_session_thumbnail` PENDENTE** (`npm run db:migrate:deploy`).
+- [ ] Pendência: o thumbnail do Drive só carrega se o link estiver "qualquer pessoa com o link"
+      (avisado na UI) — pra garantir, gerar/subir um thumb pequeno próprio (precisa de upload).
 
 ## Social (só modelos no schema)
 - [ ] Página **pública** de projeto (usa o `Visibility` que já existe) + **seguir** observadores
       (modelos `Follow`/`ObservationLog` existem, sem router/UI). Diário de observação visual (EAA).
+
+## Assistente de astronomia (IA) — ideia nova (viável)
+- [ ] Chat especializado em astronomia/astrofoto, **ciente do contexto** do app: equipamento (FOV,
+      escala), localização, projetos/sessões, efeméride (planner/eventos) e previsão (score/seeing).
+      Casos: "o que fotografar hoje com meu setup?", "M31 cabe?", "quanto integrar nessa nebulosa?",
+      "como processar essa banda estreita?", dúvidas gerais.
+- **Como:** Claude API (o app já vive no ecossistema Claude). Página `/dashboard/assistant` + rota que
+      chama a API com um system prompt de astronomia e **injeta o contexto** do usuário; idealmente com
+      **tool use** (a IA chama funções internas: `planTarget`, `upcomingEvents`, `forecast`, `setups`)
+      pra responder com dados reais, não chutado. Modelos (por capacidade): Haiku (barato) / Sonnet
+      (equilíbrio) / Opus (mais capaz) — **na hora de implementar, consultar a skill `claude-api`** pra
+      id/preço/uso exatos. Precisa de `ANTHROPIC_API_KEY` (pago, mas barato pra uso pessoal).
+- **Cuidados:** custo por chamada (limitar histórico/contexto), e deixar claro que sugestões da IA são
+      orientação — os números "duros" (FOV, score, efeméride) continuam vindo dos cálculos do app.
 
 ## Armazenamento / Drive
 - [ ] **Upload real pro Drive** (escopo de escrita `drive.file`) pra não precisar pôr o arquivo

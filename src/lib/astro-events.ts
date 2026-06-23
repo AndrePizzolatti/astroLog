@@ -5,7 +5,7 @@ import * as Astronomy from 'astronomy-engine'
 
 export type EventType =
   | 'METEOR_SHOWER' | 'ECLIPSE_SOLAR' | 'ECLIPSE_LUNAR'
-  | 'PLANET_OPPOSITION' | 'NEW_MOON' | 'FULL_MOON'
+  | 'PLANET_OPPOSITION' | 'NEW_MOON' | 'FULL_MOON' | 'CONJUNCTION'
 
 export interface AstroEvent {
   type: EventType
@@ -13,6 +13,8 @@ export interface AstroEvent {
   date: string      // 'YYYY-MM-DD'
   note?: string
 }
+
+export interface Observer { lat: number; lon: number }
 
 // ── Lua (Julian Day — mesma base do moon.ts) ──────────────────────────────────
 const LUNAR_CYCLE = 29.53058867
@@ -79,7 +81,7 @@ function eclipseKindPt(k: Astronomy.EclipseKind): string {
   return ''
 }
 
-function eclipseOccurrences(from: Date, to: Date): AstroEvent[] {
+function eclipseOccurrences(from: Date, to: Date, observer?: Observer): AstroEvent[] {
   const out: AstroEvent[] = []
   try {
     let le = Astronomy.SearchLunarEclipse(from)
@@ -89,18 +91,72 @@ function eclipseOccurrences(from: Date, to: Date): AstroEvent[] {
       if (d >= from) out.push({ type: 'ECLIPSE_LUNAR', name: `Eclipse lunar ${eclipseKindPt(le.kind)}`, date: iso(d) })
       le = Astronomy.NextLunarEclipse(le.peak)
     }
-    let se = Astronomy.SearchGlobalSolarEclipse(from)
-    for (let i = 0; i < 12; i++) {
-      const d = se.peak.date
-      if (d > to) break
-      if (d >= from) {
-        const note = se.latitude != null && se.longitude != null
-          ? `Centralidade ~${se.latitude.toFixed(0)}°, ${se.longitude.toFixed(0)}°` : undefined
-        out.push({ type: 'ECLIPSE_SOLAR', name: `Eclipse solar ${eclipseKindPt(se.kind)}`, date: iso(d), note })
+
+    if (observer) {
+      // Eclipses solares VISÍVEIS da localização do usuário (com % de cobertura).
+      const obs = new Astronomy.Observer(observer.lat, observer.lon, 0)
+      let se = Astronomy.SearchLocalSolarEclipse(from, obs)
+      for (let i = 0; i < 12; i++) {
+        const d = se.peak.time.date
+        if (d > to) break
+        if (d >= from) {
+          const obsc = (se as any).obscuration as number | undefined
+          const note = obsc != null ? `${Math.round(obsc * 100)}% de cobertura daqui` : 'visível daqui'
+          out.push({ type: 'ECLIPSE_SOLAR', name: `Eclipse solar ${eclipseKindPt(se.kind)}`, date: iso(d), note })
+        }
+        se = Astronomy.NextLocalSolarEclipse(se.peak.time, obs)
       }
-      se = Astronomy.NextGlobalSolarEclipse(se.peak)
+    } else {
+      // Sem localização: eclipses globais (data + centralidade aproximada).
+      let se = Astronomy.SearchGlobalSolarEclipse(from)
+      for (let i = 0; i < 12; i++) {
+        const d = se.peak.date
+        if (d > to) break
+        if (d >= from) {
+          const note = se.latitude != null && se.longitude != null
+            ? `Centralidade ~${se.latitude.toFixed(0)}°, ${se.longitude.toFixed(0)}°` : undefined
+          out.push({ type: 'ECLIPSE_SOLAR', name: `Eclipse solar ${eclipseKindPt(se.kind)}`, date: iso(d), note })
+        }
+        se = Astronomy.NextGlobalSolarEclipse(se.peak)
+      }
     }
   } catch { /* ignore — efeméride fora de alcance */ }
+  return out
+}
+
+// ── Conjunções planeta-planeta (aproximações no céu) ───────────────────────────
+const CONJ: { body: Astronomy.Body; name: string }[] = [
+  { body: Astronomy.Body.Mercury, name: 'Mercúrio' }, { body: Astronomy.Body.Venus, name: 'Vênus' },
+  { body: Astronomy.Body.Mars, name: 'Marte' }, { body: Astronomy.Body.Jupiter, name: 'Júpiter' },
+  { body: Astronomy.Body.Saturn, name: 'Saturno' },
+]
+const CONJ_THRESHOLD = 3   // graus — aproximação digna de nota
+
+function conjunctionOccurrences(from: Date, to: Date): AstroEvent[] {
+  const out: AstroEvent[] = []
+  const dayMs = 86_400_000
+  // amostra a separação geocêntrica diária de cada par; o mínimo local abaixo do limiar = conjunção
+  const days: { t: number; vec: Astronomy.Vector[] }[] = []
+  for (let t = from.getTime() - dayMs; t <= to.getTime() + dayMs; t += dayMs) {
+    const time = new Date(t)
+    days.push({ t, vec: CONJ.map(p => Astronomy.GeoVector(p.body, time, true)) })
+  }
+  for (let i = 0; i < CONJ.length; i++) {
+    for (let j = i + 1; j < CONJ.length; j++) {
+      for (let k = 1; k < days.length - 1; k++) {
+        const cur = Astronomy.AngleBetween(days[k].vec[i], days[k].vec[j])
+        if (cur > CONJ_THRESHOLD) continue
+        const prev = Astronomy.AngleBetween(days[k - 1].vec[i], days[k - 1].vec[j])
+        const next = Astronomy.AngleBetween(days[k + 1].vec[i], days[k + 1].vec[j])
+        if (cur <= prev && cur <= next) {
+          const d = new Date(days[k].t)
+          if (d >= from && d <= to) {
+            out.push({ type: 'CONJUNCTION', name: `${CONJ[i].name} e ${CONJ[j].name} em conjunção`, date: iso(d), note: `Separação ~${cur.toFixed(1)}°` })
+          }
+        }
+      }
+    }
+  }
   return out
 }
 
@@ -173,16 +229,18 @@ function venusBrilliancy(from: Date, to: Date): AstroEvent[] {
   return out
 }
 
-// Eventos dos próximos `days` dias, ordenados por data.
-export function upcomingEvents(from: Date, days: number): AstroEvent[] {
+// Eventos dos próximos `days` dias, ordenados por data. Com `observer`, os eclipses solares
+// passam a ser os VISÍVEIS da localização (com % de cobertura) em vez dos globais.
+export function upcomingEvents(from: Date, days: number, observer?: Observer): AstroEvent[] {
   const start = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
   const end = new Date(start.getTime() + days * 86_400_000)
   return [
     ...meteorOccurrences(start, end),
     ...moonOccurrences(start, end),
-    ...eclipseOccurrences(start, end),
+    ...eclipseOccurrences(start, end, observer),
     ...oppositionOccurrences(start, end),
     ...elongationOccurrences(start, end),
     ...venusBrilliancy(start, end),
+    ...conjunctionOccurrences(start, end),
   ].sort((a, b) => a.date.localeCompare(b.date))
 }

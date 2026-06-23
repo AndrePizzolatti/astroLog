@@ -30,6 +30,7 @@ const schema = z.object({
   gain:            z.coerce.number().int().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
   seeingArcsec:    optNum,
   rating:          z.coerce.number().int().min(1).max(5).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v)),
+  thumbnailUrl:    z.string().optional(),
   notes:           z.string().optional(),
 })
 type FormValues = z.input<typeof schema>
@@ -40,7 +41,7 @@ export type PlanetaryInitial = {
   captureSoftware?: string | null; videoFormat?: string | null
   fps?: number | null; exposureMs?: number | null; totalFrames?: number | null
   stackedPct?: number | null; roi?: string | null; gain?: number | null
-  seeingArcsec?: number | null; rating?: number | null; notes?: string | null
+  seeingArcsec?: number | null; rating?: number | null; thumbnailUrl?: string | null; notes?: string | null
 }
 
 interface Props { projectId: string; open: boolean; onOpenChange: (o: boolean) => void; initial?: PlanetaryInitial }
@@ -91,6 +92,7 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
       gain:            initial.gain ?? '',
       seeingArcsec:    initial.seeingArcsec ?? '',
       rating:          initial.rating ?? '',
+      thumbnailUrl:    initial.thumbnailUrl ?? '',
       notes:           initial.notes ?? '',
     } : { observedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm") })
   }, [open, initial?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -215,6 +217,11 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
             <select {...register('rating')} className="input">
               <option value="">—</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{'★'.repeat(n)}</option>)}
             </select>
+          </div>
+          <div className="col-span-2">
+            <label className="input-label">Resultado / capa (link)</label>
+            <input {...register('thumbnailUrl')} className="input" placeholder="Link do Drive ou URL da imagem" />
+            <p className="text-[10px] text-white/30 mt-1">Vira a capa da sessão. Link do Drive precisa estar como “qualquer pessoa com o link”.</p>
           </div>
           <div className="col-span-2">
             <label className="input-label">Notas</label>

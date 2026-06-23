@@ -20,3 +20,12 @@ export function coverThumbUrl(file: { provider: string; storagePath: string }): 
   }
   return null // LOCAL — o navegador não exibe caminho de disco
 }
+
+// Thumbnail a partir de um link livre (capa de sessão): link do Drive → endpoint de
+// thumbnail; URL http(s) → usada direto; caminho local → null (não exibível).
+export function imageThumbUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const id = driveFileId(url)
+  if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`
+  return /^https?:\/\//i.test(url) ? url : null
+}

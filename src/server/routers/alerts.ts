@@ -20,14 +20,22 @@ export const alertsRouter = router({
     .input(z.object({ days: z.number().int().min(7).max(365).default(120) }).optional())
     .query(async ({ ctx, input }) => {
       const days = input?.days ?? 120
-      const subs = await ctx.prisma.alertSubscription.findMany({
-        where:  { userId: ctx.session.user.id },
-        select: { eventType: true },
-      })
+      const [subs, user] = await Promise.all([
+        ctx.prisma.alertSubscription.findMany({
+          where:  { userId: ctx.session.user.id },
+          select: { eventType: true },
+        }),
+        ctx.prisma.user.findUnique({
+          where:  { id: ctx.session.user.id },
+          select: { latitude: true, longitude: true },
+        }),
+      ])
       const subscribed = new Set(subs.map(s => s.eventType))
       const isMoon = (t: string) => t === 'NEW_MOON' || t === 'FULL_MOON'
+      const observer = user?.latitude != null && user?.longitude != null
+        ? { lat: user.latitude, lon: user.longitude } : undefined
 
-      return upcomingEvents(new Date(), days).map(e => ({
+      return upcomingEvents(new Date(), days, observer).map(e => ({
         ...e,
         daysUntil: Math.round((new Date(e.date + 'T12:00:00Z').getTime() - Date.now()) / 86_400_000),
         subscribed: isMoon(e.type) ? null : subscribed.has(e.type),

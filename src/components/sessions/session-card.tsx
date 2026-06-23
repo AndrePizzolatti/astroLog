@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale'
 import { Star, Trash2, Pencil, Upload, X, Plus, Loader2, Copy } from 'lucide-react'
 import { cn, filterPillClass, formatIntegration } from '@/lib/utils'
 import { getMoonPhase } from '@/lib/moon'
+import { imageThumbUrl } from '@/lib/thumbnails'
 import { api } from '@/lib/trpc'
 import { useToast } from '@/components/ui/toast'
 
@@ -42,6 +43,7 @@ interface SessionCardProps {
     totalFrames?: number | null
     stackedPct?: number | null
     roi?: string | null
+    thumbnailUrl?: string | null
   }
   onEdit?: () => void
   onClone?: () => void
@@ -117,8 +119,15 @@ export function SessionCard({ session, onEdit, onClone }: SessionCardProps) {
     }
   }
 
+  const thumb = imageThumbUrl(session.thumbnailUrl)
+
   return (
     <div className="card p-4 space-y-3">
+      {thumb && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumb} alt="Prévia da sessão" loading="lazy"
+          className="w-full h-32 object-cover rounded-lg -mt-1 mb-1 bg-cosmos-900" />
+      )}
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-white">
