@@ -133,7 +133,7 @@ export default function DashboardPage() {
                 key={night.date}
                 className={cn(
                   'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs shrink-0',
-                  nightScoreBg(night.score),
+                  nightScoreBg(night.scoreDso),
                 )}
               >
                 {night.cloudCoverAvg < 40 ? (
@@ -143,8 +143,8 @@ export default function DashboardPage() {
                 ) : (
                   <Cloud className="w-3 h-3 text-white/30 shrink-0" />
                 )}
-                <span className={cn('font-bold mono', nightScoreColor(night.score))}>{night.score}</span>
-                <span className="text-white/30">{night.label}</span>
+                <span className={cn('font-bold mono', nightScoreColor(night.scoreDso))}>{night.scoreDso}</span>
+                <span className="text-white/30">{night.labelDso}</span>
               </div>
             ))}
           </div>
