@@ -52,7 +52,7 @@ export const sessionsRouter = router({
   create: protectedProcedure
     .input(z.object({
       projectId:       z.string(),
-      setupId:         z.string().optional(),
+      setupId:         z.string().nullable().optional(),
       observedAt:      z.string().datetime(),
       temperatureC:    z.number().optional(),
       humidityPct:     z.number().int().min(0).max(100).optional(),
@@ -85,15 +85,16 @@ export const sessionsRouter = router({
       })
       if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
 
-      if (input.setupId) {
+      const setupId = input.setupId || null   // "" (sem setup) → null, evita FK inválida
+      if (setupId) {
         const setup = await ctx.prisma.equipmentSetup.findFirst({
-          where: { id: input.setupId, userId: ctx.session.user.id },
+          where: { id: setupId, userId: ctx.session.user.id },
         })
         if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
       }
 
       const session = await ctx.prisma.imagingSession.create({
-        data: { ...input, observedAt: new Date(input.observedAt) },
+        data: { ...input, setupId, observedAt: new Date(input.observedAt) },
         include: { setup: true, files: true },
       })
 
@@ -105,7 +106,7 @@ export const sessionsRouter = router({
   bulkCreate: protectedProcedure
     .input(z.object({
       projectId: z.string(),
-      setupId:   z.string().optional(),
+      setupId:   z.string().nullable().optional(),
       sessions: z.array(z.object({
         observedAt:      z.string().datetime(),
         filterUsed:      z.string().optional(),
@@ -124,10 +125,11 @@ export const sessionsRouter = router({
       })
       if (!project) throw new TRPCError({ code: 'NOT_FOUND' })
 
+      const setupId = input.setupId || null   // "" (sem setup) → null, evita FK inválida
       let cameraId: string | undefined
-      if (input.setupId) {
+      if (setupId) {
         const setup = await ctx.prisma.equipmentSetup.findFirst({
-          where:  { id: input.setupId, userId: ctx.session.user.id },
+          where:  { id: setupId, userId: ctx.session.user.id },
           select: { id: true, cameraId: true },
         })
         if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
@@ -138,7 +140,7 @@ export const sessionsRouter = router({
       let autoLinked = 0
       for (const s of input.sessions) {
         const created = await ctx.prisma.imagingSession.create({
-          data:   { projectId: input.projectId, setupId: input.setupId, ...s, observedAt: new Date(s.observedAt) },
+          data:   { projectId: input.projectId, setupId, ...s, observedAt: new Date(s.observedAt) },
           select: { id: true },
         })
         if (cameraId) {

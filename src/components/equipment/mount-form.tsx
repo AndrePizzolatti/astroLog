@@ -113,11 +113,11 @@ export function MountForm({ open, onOpenChange, initial }: Props) {
           </div>
           <div>
             <label className="input-label">Payload máx (kg)</label>
-            <input {...register('payloadKg')} type="number" step="0.5" className="input" placeholder="20" />
+            <input {...register('payloadKg')} type="number" step="any" className="input" placeholder="20" />
           </div>
           <div>
             <label className="input-label">Peso (kg)</label>
-            <input {...register('weightKg')} type="number" step="0.1" className="input" placeholder="16" />
+            <input {...register('weightKg')} type="number" step="any" className="input" placeholder="16" />
           </div>
           <div className="col-span-2 flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-white/70">

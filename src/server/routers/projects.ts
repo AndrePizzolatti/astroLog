@@ -124,7 +124,7 @@ export const projectsRouter = router({
       targetType:   z.string().optional(),
       captureType:  z.enum(['DSO','PLANETARY']).default('DSO'),
       description:  z.string().optional(),
-      setupId:      z.string().optional(),
+      setupId:      z.string().nullable().optional(),
       status:       z.enum(['PLANNING','IN_PROGRESS','READY_TO_PROCESS','PROCESSING','COMPLETED','ARCHIVED']).default('IN_PROGRESS'),
       visibility:   z.enum(['PRIVATE','FRIENDS','PUBLIC']).default('PRIVATE'),
       raHours:      z.number().min(0).max(24).optional(),
@@ -132,15 +132,18 @@ export const projectsRouter = router({
       startedAt:    z.string().datetime().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      if (input.setupId) {
+      // Normaliza "" → null (selecionar "Sem setup" não pode virar FK inválida).
+      const setupId = input.setupId || null
+      if (setupId) {
         const setup = await ctx.prisma.equipmentSetup.findFirst({
-          where: { id: input.setupId, userId: ctx.session.user.id },
+          where: { id: setupId, userId: ctx.session.user.id },
         })
         if (!setup) throw new TRPCError({ code: 'NOT_FOUND', message: 'Setup not found' })
       }
       return ctx.prisma.imagingProject.create({
         data: {
           ...input,
+          setupId,
           startedAt: input.startedAt ? new Date(input.startedAt) : undefined,
           userId: ctx.session.user.id,
         },

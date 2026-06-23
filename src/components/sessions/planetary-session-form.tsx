@@ -18,7 +18,7 @@ const optInt = z.coerce.number().int().min(0).optional().or(z.literal('')).trans
 
 const schema = z.object({
   observedAt:      z.string(),
-  setupId:         z.string().optional(),
+  setupId:         z.string().optional().transform(v => (v ? v : null)),
   filterUsed:      z.string().optional(),
   captureSoftware: z.string().optional(),
   videoFormat:     z.string().optional(),
@@ -181,7 +181,7 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
             </div>
             <div>
               <label className="input-label">Exposição (ms)</label>
-              <input {...register('exposureMs')} type="number" step="0.1" className="input" placeholder="8" />
+              <input {...register('exposureMs')} type="number" step="any" className="input" placeholder="8" />
             </div>
             <div>
               <label className="input-label">Gain</label>
@@ -208,7 +208,7 @@ export function PlanetarySessionForm({ projectId, open, onOpenChange, initial }:
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="input-label">Seeing (")</label>
-            <input {...register('seeingArcsec')} type="number" step="0.1" className="input" placeholder="2.5" />
+            <input {...register('seeingArcsec')} type="number" step="any" className="input" placeholder="2.5" />
           </div>
           <div>
             <label className="input-label">Avaliação (1-5)</label>
