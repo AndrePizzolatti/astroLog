@@ -137,13 +137,13 @@ export default function PlannerPage() {
             </button>
           </div>
         )}
-        <div className="text-xs text-white/35 flex items-center gap-1.5">
+        <div className="text-xs text-white/50 flex items-center gap-1.5">
           <MapPin className="w-3.5 h-3.5" /> {lat.toFixed(2)}, {lon.toFixed(2)}
         </div>
       </div>
 
       {!target ? (
-        <div className="card p-8 text-center text-sm text-white/40">
+        <div className="card p-8 text-center text-sm text-white/55">
           <Sparkles className="w-5 h-5 mx-auto mb-2 text-cosmos-400/60" />
           Escolha um alvo no seletor — ou clique numa das <strong className="text-white/60">sugestões pra esta noite</strong> abaixo. 👇
         </div>
@@ -203,7 +203,7 @@ export default function PlannerPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white/85 truncate">{o.common}</p>
-                    <p className="text-[11px] text-white/35 truncate">{o.name} · {o.type}</p>
+                    <p className="text-[11px] text-white/50 truncate">{o.name} · {o.type}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-[11px] text-white/45 mono">{transit ? format(transit, 'HH:mm') : ''} · {hoursVisible}h</p>
@@ -228,7 +228,7 @@ export default function PlannerPage() {
               <Link key={p.id} href={`/dashboard/projects/${p.id}`}
                 className={cn('flex items-center gap-3 p-2.5 rounded-lg border transition-colors',
                   maxAlt < 30 ? 'bg-white/2 border-white/5 opacity-60' : 'bg-white/3 border-white/8 hover:bg-white/5')}>
-                <span className={cn('text-sm font-mono w-12 shrink-0', maxAlt >= 50 ? 'text-aurora-300' : maxAlt >= 30 ? 'text-green-400' : 'text-white/40')}>
+                <span className={cn('text-sm font-mono w-12 shrink-0', maxAlt >= 50 ? 'text-aurora-300' : maxAlt >= 30 ? 'text-green-400' : 'text-white/55')}>
                   {Math.round(maxAlt)}°
                 </span>
                 <span className="text-sm text-white/80 flex-1 truncate">{p.name}</span>
@@ -247,7 +247,7 @@ export default function PlannerPage() {
 function Metric({ icon: Icon, label, value, hint }: { icon: React.ComponentType<any>; label: string; value: string; hint?: string }) {
   return (
     <div className="card p-3">
-      <p className="text-[10px] text-white/35 uppercase tracking-wider flex items-center gap-1"><Icon className="w-3 h-3" /> {label}</p>
+      <p className="text-[10px] text-white/50 uppercase tracking-wider flex items-center gap-1"><Icon className="w-3 h-3" /> {label}</p>
       <p className="text-lg font-bold mono text-white leading-tight mt-1">{value}</p>
       {hint && <p className="text-[10px] text-white/30">{hint}</p>}
     </div>

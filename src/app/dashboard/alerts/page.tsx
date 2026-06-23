@@ -118,7 +118,7 @@ export default function AlertsPage() {
             <div className="p-4 min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-cosmos-400 mb-1">APOD · {apod.date}</p>
               <h2 className="text-sm font-semibold text-white">{apod.title}</h2>
-              <p className="text-[11px] text-white/40 mt-1 line-clamp-3">{apod.explanation}</p>
+              <p className="text-[11px] text-white/55 mt-1 line-clamp-3">{apod.explanation}</p>
               <a href={apod.hdurl || apod.url} target="_blank" rel="noopener noreferrer"
                 className="text-[11px] text-aurora-400 hover:underline mt-2 inline-block">Ver em alta resolução →</a>
             </div>
@@ -155,7 +155,7 @@ export default function AlertsPage() {
                         </span>
                       )}
                     </div>
-                    {e.note && <p className="text-[11px] text-white/35 truncate">{e.note}</p>}
+                    {e.note && <p className="text-[11px] text-white/50 truncate">{e.note}</p>}
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-white/60">{formatDate(e.date + 'T12:00:00Z')}</p>
@@ -171,7 +171,7 @@ export default function AlertsPage() {
       {/* Inscrições */}
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-white mb-1">Inscrições</h2>
-        <p className="text-xs text-white/40 mb-4">Marque os tipos que quer acompanhar — você recebe um resumo por e-mail quando o evento se aproxima.</p>
+        <p className="text-xs text-white/55 mb-4">Marque os tipos que quer acompanhar — você recebe um resumo por e-mail quando o evento se aproxima.</p>
         <div className="divide-y divide-white/5">
         {isLoading ? (
           [...Array(7)].map((_, i) => (

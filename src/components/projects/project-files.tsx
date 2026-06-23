@@ -60,7 +60,7 @@ export function ProjectLinks({ projectId, files }: { projectId: string; files: P
     <div className="card p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold text-white flex items-center gap-2">
-          <FolderOpen className="w-4 h-4 text-white/40" /> Arquivos & Links
+          <FolderOpen className="w-4 h-4 text-white/55" /> Arquivos & Links
         </h2>
         <div className="flex gap-2">
           <button className="btn-secondary flex items-center gap-1.5 text-xs" onClick={() => setDriveOpen(true)}>

@@ -101,7 +101,7 @@ export function EquipmentFromFITS({ open, onOpenChange }: Props) {
             onCreate={() => setCForm(true)}
           />
 
-          <button type="button" className="btn-ghost flex items-center gap-1.5 text-xs text-white/40" onClick={reset}>
+          <button type="button" className="btn-ghost flex items-center gap-1.5 text-xs text-white/55" onClick={reset}>
             <RotateCcw className="w-3.5 h-3.5" /> Ler outro frame
           </button>
         </div>

@@ -164,17 +164,17 @@ export function CameraForm({ open, onOpenChange, initial, prefill }: Props) {
           {canComputeSensor && (
             <div className="col-span-2 grid grid-cols-3 gap-2">
               <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Megapixels</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Megapixels</p>
                 <p className="text-sm font-mono font-medium text-white/80">{(w * h / 1_000_000).toFixed(1)} MP</p>
               </div>
               <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">Sensor (mm)</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Sensor (mm)</p>
                 <p className="text-sm font-mono font-medium text-white/80">
                   {(w * px / 1000).toFixed(1)} × {(h * px / 1000).toFixed(1)}
                 </p>
               </div>
               <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
-                <p className="text-[10px] text-white/35 uppercase tracking-wider mb-0.5">FITS 16-bit</p>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">FITS 16-bit</p>
                 <p className="text-sm font-mono font-medium text-white/80">~{(w * h * 2 / 1_000_000).toFixed(0)} MB</p>
               </div>
             </div>

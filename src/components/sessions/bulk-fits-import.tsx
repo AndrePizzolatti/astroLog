@@ -257,7 +257,7 @@ export function BulkFITSImport({ projectId, open, onOpenChange }: Props) {
         <div className="flex flex-col items-center justify-center gap-4 py-12">
           <Loader2 className="w-7 h-7 text-aurora-400 animate-spin" />
           <div className="w-full max-w-sm">
-            <div className="flex justify-between text-xs text-white/40 mb-1.5">
+            <div className="flex justify-between text-xs text-white/55 mb-1.5">
               <span>Lendo headers…</span>
               <span className="mono">{state.done} / {state.total}</span>
             </div>
@@ -287,7 +287,7 @@ export function BulkFITSImport({ projectId, open, onOpenChange }: Props) {
 
           {/* Ignored summary */}
           {(review.ignored.darks + review.ignored.flats + review.ignored.bias) > 0 && (
-            <p className="text-[11px] text-white/35">
+            <p className="text-[11px] text-white/50">
               Ignorados (calibração): {review.ignored.darks} darks · {review.ignored.flats} flats · {review.ignored.bias} bias.
               Use a Biblioteca para gerenciar masters reutilizáveis.
             </p>
@@ -295,7 +295,7 @@ export function BulkFITSImport({ projectId, open, onOpenChange }: Props) {
 
           {/* Groups table */}
           <div className="border border-white/8 rounded-xl overflow-hidden">
-            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-2 px-3 py-2 bg-white/3 text-[10px] uppercase tracking-wider text-white/35">
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-2 px-3 py-2 bg-white/3 text-[10px] uppercase tracking-wider text-white/50">
               <span></span>
               <span>Noite</span>
               <span className="text-center">Filtro</span>

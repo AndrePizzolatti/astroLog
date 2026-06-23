@@ -49,7 +49,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <h3 className="font-semibold text-white truncate">{project.name}</h3>
-          <p className="text-xs text-white/40 mt-0.5">{project.targetObject}
+          <p className="text-xs text-white/55 mt-0.5">{project.targetObject}
             {project.targetType && <span className="ml-1 text-white/25">· {project.targetType}</span>}
           </p>
         </div>
@@ -59,7 +59,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
       </div>
 
       {project.setup && (
-        <div className="flex items-center gap-1.5 text-xs text-white/40">
+        <div className="flex items-center gap-1.5 text-xs text-white/55">
           <Camera className="w-3 h-3" />
           <span>{project.setup.name}</span>
         </div>

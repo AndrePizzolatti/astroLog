@@ -124,7 +124,7 @@ export function SessionCard({ session, onEdit, onClone }: SessionCardProps) {
           <p className="text-sm font-medium text-white">
             {format(new Date(session.observedAt), "d 'de' MMM yyyy", { locale: ptBR })}
           </p>
-          {session.setup && <p className="text-xs text-white/40">{session.setup.name}</p>}
+          {session.setup && <p className="text-xs text-white/55">{session.setup.name}</p>}
           {(() => {
             const moon = getMoonPhase(new Date(session.observedAt))
             return (
@@ -184,13 +184,13 @@ export function SessionCard({ session, onEdit, onClone }: SessionCardProps) {
           {session.fps        != null && <span>{session.fps} fps</span>}
           {session.exposureMs != null && <span>{session.exposureMs} ms</span>}
           {session.roi                && <span>ROI {session.roi}</span>}
-          {session.captureSoftware    && <span className="text-white/40">{session.captureSoftware}{session.videoFormat ? ` · ${session.videoFormat}` : ''}</span>}
+          {session.captureSoftware    && <span className="text-white/55">{session.captureSoftware}{session.videoFormat ? ` · ${session.videoFormat}` : ''}</span>}
         </div>
       )}
 
       {/* Conditions */}
       {(session.seeingArcsec || session.sqmValue || session.bortleScale || session.guidingRmsArcsec) && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/40 pt-2 border-t border-white/5">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/55 pt-2 border-t border-white/5">
           {session.seeingArcsec     && <span>Seeing {session.seeingArcsec}"</span>}
           {session.sqmValue         && <span>SQM {session.sqmValue}</span>}
           {session.bortleScale      && <span>Bortle {session.bortleScale}</span>}
@@ -217,7 +217,7 @@ export function SessionCard({ session, onEdit, onClone }: SessionCardProps) {
         {Object.keys(filesByType).length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(filesByType).map(([type, count]) => (
-              <div key={type} className="flex items-center gap-1 badge bg-white/5 text-white/40 pr-1">
+              <div key={type} className="flex items-center gap-1 badge bg-white/5 text-white/55 pr-1">
                 <span className="mono">{count} {type}</span>
                 <button
                   onClick={() => handleDeleteType(type)}

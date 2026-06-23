@@ -41,7 +41,7 @@ export function AgentTokens() {
         <Terminal className="w-4 h-4 text-cosmos-400" />
         <h2 className="text-sm font-semibold text-white">Agente local</h2>
       </div>
-      <p className="text-xs text-white/40">
+      <p className="text-xs text-white/55">
         Gere um token para o agente do Siril rodar o processamento na sua máquina e reportar de volta.
         O token aparece <strong className="text-white/60">uma única vez</strong>.
       </p>

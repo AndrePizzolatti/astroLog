@@ -30,7 +30,7 @@ const TYPE_COLORS: Record<CalibType, string> = {
 }
 
 function typeColor(t: string) {
-  return TYPE_COLORS[t as CalibType] ?? 'bg-white/10 text-white/40 border-white/20'
+  return TYPE_COLORS[t as CalibType] ?? 'bg-white/10 text-white/55 border-white/20'
 }
 
 // days until expiry: Bias 365d, Darks 180d
@@ -109,7 +109,7 @@ function CalibCard({ frame, onDelete }: { frame: any; onDelete: () => void }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium text-white truncate">{frame.label}</p>
-          <p className="text-xs text-white/40">{frame.camera.name}</p>
+          <p className="text-xs text-white/55">{frame.camera.name}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ExpiryBadge frameType={frame.frameType} createdAt={frame.createdAt} />
@@ -248,7 +248,7 @@ function UploadModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
                   key={t} type="button"
                   onClick={() => setValue('frameType', t)}
                   className={cn('px-2.5 py-1 rounded-md text-xs font-medium border transition-opacity',
-                    wType === t ? typeColor(t) : 'bg-white/5 text-white/40 border-white/10 opacity-60 hover:opacity-100')}
+                    wType === t ? typeColor(t) : 'bg-white/5 text-white/55 border-white/10 opacity-60 hover:opacity-100')}
                 >
                   {TYPE_LABELS[t]}
                 </button>
@@ -425,7 +425,7 @@ export default function LibraryPage() {
       ) : !items.length ? (
         <div className="card p-16 flex flex-col items-center text-center gap-3">
           <Library className="w-12 h-12 text-white/10" />
-          <h3 className="font-medium text-white/40">Biblioteca vazia</h3>
+          <h3 className="font-medium text-white/55">Biblioteca vazia</h3>
           <p className="text-sm text-white/25 max-w-xs">
             Adicione darks e biases capturados com sua câmera para reutilizar em múltiplos projetos.
           </p>

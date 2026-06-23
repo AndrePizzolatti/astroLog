@@ -127,7 +127,7 @@ export function SirilLab({ open, onOpenChange, target, isOSCDefault, filters }: 
         </div>
 
         {mode === 'mono' && (
-          <p className="text-[11px] text-white/35">
+          <p className="text-[11px] text-white/50">
             Modo mono: um bloco por filtro detectado{filters.length ? ` (${filters.join(', ')})` : ' — nenhum filtro registrado ainda'}.
             Organize os lights em subpastas com o nome do filtro.
           </p>
@@ -148,7 +148,7 @@ export function SirilLab({ open, onOpenChange, target, isOSCDefault, filters }: 
                   onChange={e => setSiioiii(Math.max(0, parseInt(e.target.value) || 0))} className="input h-9 text-sm" />
               </label>
             </div>
-            <p className="text-[11px] text-white/35">
+            <p className="text-[11px] text-white/50">
               Flats são por noite (<code className="text-white/55">haoiii_1/flats</code>…). O <strong className="text-white/60">OIII é
               empilhado de todas as noites</strong> (Ha+OIII e SII+OIII juntos) para o melhor SNR.
             </p>
@@ -170,7 +170,7 @@ export function SirilLab({ open, onOpenChange, target, isOSCDefault, filters }: 
         {/* Script preview */}
         <div className="rounded-xl border border-white/8 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-1.5 bg-white/3">
-            <span className="text-[10px] uppercase tracking-wider text-white/35">{fileBase}{mode === 'sho' ? '_SHO' : ''}.ssf</span>
+            <span className="text-[10px] uppercase tracking-wider text-white/50">{fileBase}{mode === 'sho' ? '_SHO' : ''}.ssf</span>
             <button type="button" onClick={() => copy(script)} className="btn-ghost flex items-center gap-1 text-[11px] text-white/50 hover:text-white/80">
               {copied ? <><Check className="w-3 h-3 text-aurora-400" /> Copiado</> : <><Copy className="w-3 h-3" /> Copiar</>}
             </button>
@@ -199,7 +199,7 @@ export function SirilLab({ open, onOpenChange, target, isOSCDefault, filters }: 
         {mode === 'sho' && (
           <div className="rounded-xl border border-white/8 overflow-hidden">
             <div className="flex items-center justify-between px-3 py-1.5 bg-white/3">
-              <span className="text-[10px] uppercase tracking-wider text-white/35">PixelMath SHO (PixInsight)</span>
+              <span className="text-[10px] uppercase tracking-wider text-white/50">PixelMath SHO (PixInsight)</span>
               <button type="button" onClick={() => copy(pixelMath)} className="btn-ghost flex items-center gap-1 text-[11px] text-white/50 hover:text-white/80">
                 <Copy className="w-3 h-3" /> Copiar
               </button>

@@ -139,7 +139,7 @@ export default function SettingsPage() {
             )}
             <div>
               <p className="text-sm font-medium text-white">{session?.user?.name}</p>
-              <p className="text-xs text-white/40">{session?.user?.email}</p>
+              <p className="text-xs text-white/55">{session?.user?.email}</p>
             </div>
           </div>
 
@@ -156,7 +156,7 @@ export default function SettingsPage() {
             <MapPin className="w-4 h-4 text-cosmos-400" />
             <h2 className="text-sm font-semibold text-white">Localização</h2>
           </div>
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-white/55">
             Usada para calcular a previsão do tempo local e altitudes dos objetos celestes.
           </p>
 
@@ -181,7 +181,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleGPS}
                   disabled={gpsLoading}
-                  className="flex items-center gap-1.5 text-xs text-white/40 hover:text-aurora-400 transition-colors disabled:opacity-40"
+                  className="flex items-center gap-1.5 text-xs text-white/55 hover:text-aurora-400 transition-colors disabled:opacity-40"
                 >
                   <LocateFixed className="w-3.5 h-3.5" />
                   {gpsLoading ? 'Obtendo…' : 'Localização atual'}

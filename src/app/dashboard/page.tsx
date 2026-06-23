@@ -90,35 +90,35 @@ export default function DashboardPage() {
           <Layers className="w-4 h-4 text-cosmos-400 shrink-0" />
           <div>
             <p className="text-lg font-bold mono text-white leading-none">{allProjects.length}</p>
-            <p className="text-xs text-white/40 mt-0.5">projetos</p>
+            <p className="text-xs text-white/55 mt-0.5">projetos</p>
           </div>
         </div>
         <div className="card p-3 flex items-center gap-3">
           <CalendarDays className="w-4 h-4 text-nebula-400 shrink-0" />
           <div>
             <p className="text-lg font-bold mono text-white leading-none">{totalSessions}</p>
-            <p className="text-xs text-white/40 mt-0.5">sessões</p>
+            <p className="text-xs text-white/55 mt-0.5">sessões</p>
           </div>
         </div>
         <div className="card p-3 flex items-center gap-3">
           <Camera className="w-4 h-4 text-aurora-400 shrink-0" />
           <div>
             <p className="text-lg font-bold mono text-white leading-none">{totalLights.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-white/40 mt-0.5">frames</p>
+            <p className="text-xs text-white/55 mt-0.5">frames</p>
           </div>
         </div>
         <div className="card p-3 flex items-center gap-3">
           <Clock className="w-4 h-4 text-star-400 shrink-0" />
           <div>
             <p className="text-lg font-bold mono text-white leading-none">{formatHours(totalHours)}</p>
-            <p className="text-xs text-white/40 mt-0.5">integração total</p>
+            <p className="text-xs text-white/55 mt-0.5">integração total</p>
           </div>
         </div>
         <div className="card p-3 flex items-center gap-3 border-aurora-400/15 bg-aurora-400/5">
           <TrendingUp className="w-4 h-4 text-aurora-400 shrink-0" />
           <div>
             <p className="text-lg font-bold mono text-aurora-300 leading-none">{formatHours(hoursThisYear)}</p>
-            <p className="text-xs text-white/40 mt-0.5">em {thisYear}</p>
+            <p className="text-xs text-white/55 mt-0.5">em {thisYear}</p>
           </div>
         </div>
       </div>
